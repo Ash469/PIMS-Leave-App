@@ -1,0 +1,334 @@
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/data_models.dart';
+
+class RoleSelectionScreen extends StatefulWidget {
+  const RoleSelectionScreen({super.key});
+
+  @override
+  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+}
+
+class _RoleSelectionScreenState extends State<RoleSelectionScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _logoController;
+  late Animation<double> _logoScale;
+  int _pressedIndex = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _logoController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _logoScale = CurvedAnimation(
+      parent: _logoController,
+      curve: Curves.elasticOut,
+    );
+    _logoController.forward();
+  }
+
+  @override
+  void dispose() {
+    _logoController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Background Image
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/images/bg.png'),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          // Animated blurred overlay for depth
+          AnimatedOpacity(
+            opacity: 1,
+            duration: const Duration(milliseconds: 900),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              child: Container(
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+          // Semi-transparent gradient overlay
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.blue.withOpacity(0.18),
+                  Colors.purple.withOpacity(0.13),
+                  Colors.white.withOpacity(0.10),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          // Glassmorphism Content Card
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(36),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: Container(
+                      width: 430,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 40, horizontal: 32),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.22),
+                        borderRadius: BorderRadius.circular(36),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.45),
+                          width: 2.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.10),
+                            blurRadius: 32,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Animated App Logo/Title with glowing border
+                          ScaleTransition(
+                            scale: _logoScale,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(32),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blueAccent.withOpacity(0.25),
+                                    blurRadius: 32,
+                                    spreadRadius: 2,
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.18),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                                border: Border.all(
+                                  color: Colors.blueAccent.withOpacity(0.18),
+                                  width: 2.5,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(24),
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  width: 110,
+                                  height: 110,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          const Text(
+                            'Prasad Institute of Medical Sciences',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 23,
+                              fontWeight: FontWeight.bold,
+                              color: Color.fromARGB(255, 219, 46, 46),
+                              letterSpacing: 0.7,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.white,
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Empowering Education & Care',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 15,
+                              color: Colors.blueGrey.shade700,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          const Text(
+                            'Who are you?',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white70,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          // Role Selection Buttons
+                          _buildRoleButton(
+                            context,
+                            'Student',
+                            Icons.school,
+                            Colors.blue,
+                            UserRole.student,
+                            0,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildRoleButton(
+                            context,
+                            'Parent',
+                            Icons.family_restroom,
+                            Colors.green,
+                            UserRole.parent,
+                            1,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildRoleButton(
+                            context,
+                            'Warden',
+                            Icons.admin_panel_settings,
+                            Colors.orange,
+                            UserRole.warden,
+                            2,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildRoleButton(
+                            context,
+                            'Guard',
+                            Icons.security,
+                            Colors.purple,
+                            UserRole.guard,
+                            3,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRoleButton(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Color color,
+    UserRole role,
+    int index,
+  ) {
+    final bool isPressed = _pressedIndex == index;
+    return Listener(
+      onPointerDown: (_) => setState(() => _pressedIndex = index),
+      onPointerUp: (_) => setState(() => _pressedIndex = -1),
+      child: AnimatedScale(
+        scale: isPressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            width: double.infinity,
+            height: 74,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.22),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+              gradient: LinearGradient(
+                colors: [
+                  color.withOpacity(0.98),
+                  color.withOpacity(0.82),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.22),
+                width: 1.5,
+              ),
+            ),
+            child: ElevatedButton(
+              onPressed: () async {
+                setState(() => _pressedIndex = index);
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('role', role.name);
+                await Future.delayed(const Duration(milliseconds: 120));
+                setState(() => _pressedIndex = -1);
+                Navigator.pushNamed(
+                  context,
+                  '/login',
+                  arguments: role,
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    
+                    child: Icon(icon, size: 32),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black26,
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
