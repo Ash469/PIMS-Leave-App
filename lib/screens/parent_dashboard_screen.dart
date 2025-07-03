@@ -27,6 +27,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   String? _Name;
   DateTime? _lastBackPressed; // Add this field
   List<Map<String, dynamic>> _wardConcerns = []; // Add this field
+  final ScrollController _dashboardScrollController = ScrollController(); // Add this field
 
   @override
   void initState() {
@@ -189,6 +190,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               icon: Icon(Icons.list_alt),
               label: 'All Applications',
             ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.report_problem),
+              label: 'All Concerns',
+            ),
           ],
         ),
       ),
@@ -201,6 +206,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         return _buildDashboardTab();
       case 1:
         return _buildAllApplicationsTab();
+      case 2:
+        return _buildAllConcernsTab();
       default:
         return Container();
     }
@@ -208,6 +215,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   Widget _buildDashboardTab() {
     final recentRequests = _leaveRequests.take(2).toList(); // Show only 2 applications
+    final recentConcerns = _wardConcerns.take(2).toList(); // Show only 2 concerns
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -217,6 +225,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(
+          controller: _dashboardScrollController,
           children: [
             // Welcome Card
             Card(
@@ -261,9 +270,22 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             ),         
 
             // Recent Applications section (limited to 2)
-            const Text(
-              'Recent Applications',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Recent Applications',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedTab = 1;
+                    });
+                  },
+                  child: const Text('View All'),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             if (_leaveRequests.isEmpty)
@@ -276,10 +298,23 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             else
               ...recentRequests.map(_buildLeaveRequestCard).toList(),
 
-            // Ward Concerns section
-            const Text(
-              'Ward Concerns',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            // Ward Concerns section (limited to 2)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Ward Concerns',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedTab = 2;
+                    });
+                  },
+                  child: const Text('View All'),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             if (_wardConcerns.isEmpty)
@@ -290,7 +325,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
               )
             else
-              ..._wardConcerns.map(_buildConcernCard).toList(),
+              ...recentConcerns.map(_buildConcernCard).toList(),
           ],
         ),
       ),
@@ -403,7 +438,40 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
-
+  Widget _buildAllConcernsTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'All Concerns',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _fetchWardConcerns,
+              child: _wardConcerns.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No concerns reported yet.',
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _wardConcerns.length,
+                      itemBuilder: (context, index) {
+                        final concern = _wardConcerns[index];
+                        return _buildConcernCard(concern);
+                      },
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildLeaveRequestCard(LeaveRequest request) {
     Color statusColor;

@@ -38,6 +38,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -78,16 +81,18 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
           // Glassmorphism Content Card
           SafeArea(
             child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(screenWidth * 0.05),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(36),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                     child: Container(
-                      width: 430,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 40, horizontal: 32),
+                      width: screenWidth > 450 ? 430 : screenWidth * 0.9,
+                      padding: EdgeInsets.symmetric(
+                        vertical: screenHeight * 0.05,
+                        horizontal: screenWidth * 0.08,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.22),
                         borderRadius: BorderRadius.circular(36),
@@ -133,23 +138,23 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                                 borderRadius: BorderRadius.circular(24),
                                 child: Image.asset(
                                   'assets/images/logo.png',
-                                  width: 110,
-                                  height: 110,
+                                  width: screenWidth * 0.25,
+                                  height: screenWidth * 0.25,
                                   fit: BoxFit.contain,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 18),
-                          const Text(
+                          SizedBox(height: screenHeight * 0.02),
+                          Text(
                             'Prasad Institute of Medical Sciences',
                             style: TextStyle(
                               fontFamily: 'Montserrat',
-                              fontSize: 23,
+                              fontSize: screenWidth * 0.05,
                               fontWeight: FontWeight.bold,
-                              color: Color.fromARGB(255, 219, 46, 46),
+                              color: const Color.fromARGB(255, 219, 46, 46),
                               letterSpacing: 0.7,
-                              shadows: [
+                              shadows: const [
                                 Shadow(
                                   color: Colors.white,
                                   blurRadius: 8,
@@ -158,29 +163,29 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: screenHeight * 0.01),
                           Text(
                             'Empowering Education & Care',
                             style: TextStyle(
                               fontFamily: 'Montserrat',
-                              fontSize: 15,
+                              fontSize: screenWidth * 0.035,
                               color: Colors.blueGrey.shade700,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.2,
                             ),
                           ),
-                          const SizedBox(height: 32),
-                          const Text(
+                          SizedBox(height: screenHeight * 0.04),
+                          Text(
                             'Who are you?',
                             style: TextStyle(
                               fontFamily: 'Montserrat',
-                              fontSize: 22,
+                              fontSize: screenWidth * 0.045,
                               fontWeight: FontWeight.w700,
                               color: Colors.white70,
                               letterSpacing: 0.2,
                             ),
                           ),
-                          const SizedBox(height: 28),
+                          SizedBox(height: screenHeight * 0.03),
                           // Role Selection Buttons
                           _buildRoleButton(
                             context,
@@ -190,7 +195,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                             UserRole.student,
                             0,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: screenHeight * 0.02),
                           _buildRoleButton(
                             context,
                             'Parent',
@@ -199,7 +204,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                             UserRole.parent,
                             1,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: screenHeight * 0.02),
                           _buildRoleButton(
                             context,
                             'Warden',
@@ -208,7 +213,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                             UserRole.warden,
                             2,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: screenHeight * 0.02),
                           _buildRoleButton(
                             context,
                             'Guard',
@@ -304,7 +309,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOut,
-                    
                     child: Icon(icon, size: 32),
                   ),
                   const SizedBox(width: 16),

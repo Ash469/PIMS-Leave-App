@@ -72,7 +72,7 @@ class _LeaveDetailsScreenState extends State<LeaveDetailsScreen> {
     Map<String, dynamic> parentStatus = rawJson['parentStatus'] ?? {};
     Map<String, dynamic> wardenStatus = rawJson['wardenStatus'] ?? {};
     Map<String, dynamic> guardStatus = rawJson['guardStatus'] ?? {};
-    // Admin status intentionally not shown
+    Map<String, dynamic> adminStatus = rawJson['adminStatus'] ?? {};
 
     Widget statusChip(String? status) {
       Color color;
@@ -83,12 +83,17 @@ class _LeaveDetailsScreenState extends State<LeaveDetailsScreen> {
         case 'rejected':
           color = Colors.red;
           break;
+        case 'stopped':
+          color = Colors.red;
+          break;
         case 'pending':
         default:
           color = Colors.orange;
       }
       return Chip(
-        label: Text(status ?? 'pending'),
+        label: Text(
+          (status ?? 'pending').replaceFirst(status![0], status[0].toUpperCase()),
+        ),
         backgroundColor: color.withOpacity(0.2),
         labelStyle: TextStyle(color: color),
       );
@@ -112,30 +117,30 @@ class _LeaveDetailsScreenState extends State<LeaveDetailsScreen> {
               if (!isFirst)
                 Container(
                   width: 2,
-                  height: 24,
+                  height: MediaQuery.of(context).size.height * 0.05, // Responsive height
                   color: Colors.grey.shade400,
                 ),
               CircleAvatar(
                 backgroundColor: decided
                     ? (status == 'approved'
                         ? Colors.green
-                        : status == 'rejected'
+                        : status == 'rejected' || status == 'stopped'
                             ? Colors.red
                             : Colors.orange)
                     : Colors.grey.shade300,
+                radius: MediaQuery.of(context).size.width * 0.05, // Responsive radius
                 child: Icon(icon, color: Colors.white, size: 20),
-                radius: 18,
               ),
               if (!isLast)
                 Container(
                   width: 2,
-                  height: 24,
+                  height: MediaQuery.of(context).size.height * 0.05, // Responsive height
                   color: Colors.grey.shade400,
                 ),
             ],
           ),
           const SizedBox(width: 12),
-          Expanded(
+          Flexible(
             child: Card(
               margin: const EdgeInsets.symmetric(vertical: 4),
               child: Padding(
@@ -146,9 +151,13 @@ class _LeaveDetailsScreenState extends State<LeaveDetailsScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(title,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis, // Handle overflow
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         statusChip(status),
                       ],
@@ -157,14 +166,19 @@ class _LeaveDetailsScreenState extends State<LeaveDetailsScreen> {
                         (statusObj['reason'] ?? '').toString().isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4.0),
-                        child: Text('Reason: ${statusObj['reason']}'),
+                        child: Text(
+                          'Reason: ${statusObj['reason']}',
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                     if (decided &&
                         (statusObj['decidedAt'] ?? '').toString().isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 2.0),
                         child: Text(
-                            'Decided At: ${formatDate(statusObj['decidedAt']?.toString())}'),
+                          'Decided At: ${formatDate(statusObj['decidedAt']?.toString())}',
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                   ],
                 ),
@@ -325,10 +339,19 @@ class _LeaveDetailsScreenState extends State<LeaveDetailsScreen> {
               isFirst: false,
               isLast: true,
             ),
+            // Add admin status to the timeline if it is stopped
+            if (adminStatus['status']?.toString() == 'stopped')
+              timelineStop(
+                title: 'Admin',
+                icon: Icons.admin_panel_settings,
+                statusObj: adminStatus,
+                isFirst: false,
+                isLast: false,
+              ),
           ],
         ),
       ),
       );
     }
   }
-   
+

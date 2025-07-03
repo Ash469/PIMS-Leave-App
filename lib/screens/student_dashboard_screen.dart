@@ -272,19 +272,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     },
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildActionButton(
-                    'My QR Code',
-                    Icons.qr_code,
-                    Colors.green,
-                    isQRActive
-                        ? () {
-                            _showQRCode(approvedLeave);
-                          }
-                        : null,
-                  ),
-                ),
               ],
             ),
 
@@ -400,10 +387,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     Color statusColor;
     String statusText;
 
-    // Determine status based on adminStatus, wardenStatus, parentStatus
+    // Determine status based on adminStatus, wardenStatus, parentStatus, guardStatus
     final admin = request.adminStatus.status ?? '';
     final warden = request.wardenStatus.status ?? '';
     final parent = request.parentStatus.status ?? '';
+    final guard = request.guardStatus.status ?? '';
 
     if (admin == 'stopped') {
       statusColor = Colors.red;
@@ -424,6 +412,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       statusColor = Colors.orange;
       statusText = 'Waiting for Parent Approval';
     }
+
+    // Determine QR button state and label
+    final isQRClickable = warden == 'approved' && admin != 'stopped';
+    final isReturnVerification = isQRClickable && guard == 'approved';
+    final qrButtonLabel = 'My QR Code';
+
+    // --- Hide QR code if leave is already returned ---
+    final isReturned = (request.returnDateTime != null);
 
     return GestureDetector(
       onTap: () async {
@@ -521,6 +517,24 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   padding: const EdgeInsets.only(top: 12.0),
                   child: _buildSimpleStatusTracker(request),
                 ),
+              // Only show QR code button if not returned
+              if (!isReturned)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: isQRClickable ? () => _showQRCode(request) : null,
+                    icon: Icon(
+                      Icons.qr_code,
+                      color: isQRClickable ? Colors.green : Colors.grey,
+                    ),
+                    label: Text(
+                      qrButtonLabel,
+                      style: TextStyle(
+                        color: isQRClickable ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -530,9 +544,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
   // --- Simple horizontal tracker widget ---
   Widget _buildSimpleStatusTracker(LeaveRequest leave) {
-    // Only show Admin if rejected/stopped
-    final showAdmin = leave.adminStatus.status == 'rejected' || leave.adminStatus.status == 'stopped';
-
     final stages = [
       {
         'label': 'Parent',
@@ -549,7 +560,21 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         'status': leave.guardStatus.status,
         'date': leave.guardStatus.decidedAt ?? leave.createdAt
       },
+      {
+        'label': 'Return',
+        'status': leave.returnDateTime != null ? 'returned' : 'pending',
+        'date': leave.returnDateTime
+      },
     ];
+
+    // Optionally add Admin if applicable
+    if (leave.adminStatus.status == 'rejected' || leave.adminStatus.status == 'stopped') {
+      stages.add({
+        'label': 'Admin',
+        'status': leave.adminStatus.status,
+        'date': leave.adminStatus.decidedAt ?? leave.createdAt
+      });
+    }
 
     // Find current stage index
     int currentStage = 0;
@@ -580,33 +605,33 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       return Column(
         children: [
           CircleAvatar(
-            radius: 12,
+            radius: MediaQuery.of(context).size.width * 0.03, // Responsive radius
             backgroundColor: color,
             child: Icon(
-              status == 'approved'
+              status == 'approved' || status == 'returned'
                   ? Icons.check
                   : (status == 'rejected' || status == 'stopped')
                       ? Icons.close
                       : Icons.circle,
               color: Colors.white,
-              size: 16,
+              size: MediaQuery.of(context).size.width * 0.04, // Responsive icon size
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: MediaQuery.of(context).size.width * 0.03, // Responsive font size
               color: color,
               fontWeight: idx == currentStage ? FontWeight.bold : FontWeight.normal,
             ),
           ),
-          if ((status == 'approved' || status == 'rejected' || status == 'stopped') && date != null)
+          if (status == 'returned' && date != null)
             Text(
               _formatDateTime(date),
               style: TextStyle(
-                fontSize: 10,
-                color: status == 'approved' ? Colors.green : Colors.red,
+                fontSize: MediaQuery.of(context).size.width * 0.025, // Responsive font size
+                color: Colors.green,
               ),
             ),
         ],
@@ -627,7 +652,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         // Connector line
         final leftIdx = (i - 1) ~/ 2;
         final leftStatus = stages[leftIdx]['status'] as String?;
-        final color = (leftStatus == 'approved' || leftStatus == 'rejected' || leftStatus == 'stopped')
+        final color = (leftStatus == 'approved' || leftStatus == 'returned' || leftStatus == 'rejected' || leftStatus == 'stopped')
             ? getColor(leftIdx, leftStatus)
             : Colors.grey[400];
         return Expanded(
@@ -638,41 +663,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         );
       }
     });
-
-    // Optionally add Admin rejected/stopped at the end
-    if (showAdmin) {
-      tracker.add(Expanded(
-        child: Row(
-          children: [
-            const SizedBox(width: 8),
-            Column(
-              children: [
-                CircleAvatar(
-                  radius: 12,
-                  backgroundColor: Colors.red,
-                  child: const Icon(Icons.close, color: Colors.white, size: 16),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Admin',
-                  style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold),
-                ),
-                if (leave.adminStatus.decidedAt != null)
-                  Text(
-                    _formatDateTime(leave.adminStatus.decidedAt!),
-                    style: const TextStyle(fontSize: 10, color: Colors.red),
-                  )
-                else if (leave.createdAt != null)
-                  Text(
-                    _formatDateTime(leave.createdAt),
-                    style: const TextStyle(fontSize: 10, color: Colors.red),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ));
-    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -692,9 +682,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  void _showQRCode([LeaveRequest? approvedLeave]) {
-    // If no approvedLeave, do nothing (should not be called)
-    if (approvedLeave == null) return;
+  void _showQRCode(LeaveRequest approvedLeave) {
+    // Determine the text based on guard status
+    final isReturnVerification = approvedLeave.guardStatus.status == 'approved';
+    final verificationText = isReturnVerification
+        ? 'Scan this QR code to verify return'
+        : 'Scan this QR code to verify leave approval';
 
     final qrData = _generateQRData(approvedLeave);
 
@@ -720,14 +713,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Scan this QR code to verify leave approval',
-              style: TextStyle(fontSize: 14),
+            Text(
+              verificationText,
+              style: const TextStyle(fontSize: 14),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Leave ID: ${approvedLeave.id}',
+              'Leave Reason: ${approvedLeave.reason ?? 'N/A'}',
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
@@ -743,12 +736,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   }
 
   String _generateQRData(LeaveRequest approvedLeave) {
-    // Only called if approvedLeave is not null
-    Map<String, dynamic> qrData = {
-      'studentId': approvedLeave.studentId,
-      'leaveId': approvedLeave.id,
-    };
-    return json.encode(qrData);
+    // Encode QR data in "name|reason|leaveId" format
+    return '${_studentName}|${approvedLeave.reason ?? 'N/A'}|${approvedLeave.id}';
   }
 
   Widget _buildActionButton(

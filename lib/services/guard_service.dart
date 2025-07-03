@@ -67,7 +67,7 @@ class GuardService {
   static Future<Map<String, dynamic>> decideOnDeparture({
     required String jwtToken,
     required String id,
-    required String decision, // "approved" or "rejected"
+    required String decision, 
     String? rejectionReason,
   }) async {
     if (decision == 'rejected' && (rejectionReason == null || rejectionReason.trim().isEmpty)) {
@@ -88,7 +88,7 @@ class GuardService {
       },
       body: json.encode(body),
     );
-    print('Response: ${response.statusCode} ${response.body}');
+    // print('Response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
@@ -117,4 +117,6 @@ class GuardService {
       throw Exception('Failed to mark student return: ${response.statusCode}');
     }
   }
+
+  
 }

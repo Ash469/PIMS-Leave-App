@@ -12,6 +12,9 @@ PIMS is a comprehensive leave management system designed for the Prasad Institut
 - **Notifications**: Real-time in-app notifications for leave updates.
 - **Data Persistence**: Offline access with local storage.
 - **Raise Concerns**: Guards can raise concerns with optional document attachments.
+- **Mark Departure and Return via QR Codes**: Simplify the process of marking student departures and returns by scanning QR codes, eliminating the need for manual searching.
+- **Role-Based Dashboards**: Tailored dashboards for students, parents, wardens, and guards to manage their respective tasks efficiently.
+- **Google Sign-In Authentication**: Secure login for authorized users.
 
 ## Tech Highlights
 
@@ -72,9 +75,9 @@ lib/
 
 ## Screenshots
 
-| Role Selection Screen | Student Dashboard | Leave Request Form |
-|------------------------|-------------------|--------------------|
-| ![Role Selection](assets/screenshots/role_selection.png) | ![Student Dashboard](assets/screenshots/student_dashboard.png) | ![Leave Request](assets/screenshots/leave_request.png) |
+| Role Selection Screen | Student Dashboard | Parent Dashboard | Warden Dashboard | Guard Dashboard |
+|------------------------|-------------------|------------------|------------------|-----------------|
+| ![Role Selection](assets/screenshot/role.jpg) | ![Student Dashboard](assets/screenshot/student.jpg) | ![Parent Dashboard](assets/screenshot/parent.jpg) | ![Warden Dashboard](assets/screenshot/warden.jpg) | ![Guard Dashboard](assets/screenshot/guard.jpg) |
 
 ## Authentication
 
@@ -91,9 +94,9 @@ Contributions are welcome! Please follow these steps:
    ```
 3. Commit your changes:
    ```bash
-   git commit -m "Add feature-name"
+   git commit -m "Add feature description"
    ```
-4. Push to the branch:
+4. Push to your branch:
    ```bash
    git push origin feature-name
    ```

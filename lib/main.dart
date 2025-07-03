@@ -10,6 +10,7 @@ import 'screens/warden_dashboard_screen.dart';
 import 'screens/leave_request_screen.dart';
 import 'screens/parent_profile_screen.dart';
 import 'screens/guard_dashboard_screen.dart';
+import 'screens/qr_scanner_screen.dart';
 import 'models/data_models.dart';
 import 'firebase_options.dart';
 import 'services/fcm_service.dart';
@@ -79,6 +80,12 @@ class MyApp extends StatelessWidget {
         '/guard-dashboard': (context) => const GuardDashboardScreen(), // new route
         '/request-leave': (context) => const LeaveRequestScreen(),
         '/parent-profile': (context) => const ParentProfileScreen(),
+        '/qr-scanner': (context) => QrScannerScreen(
+          onQrCodeScanned: (qrData) {
+            // Handle QR code scanned data here if needed
+          },
+          tab: 'departure', // Default to departure tab
+        ),
       },
     );
   }
