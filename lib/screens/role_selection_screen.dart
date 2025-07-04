@@ -251,85 +251,41 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
         scale: isPressed ? 0.96 : 1.0,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            width: double.infinity,
-            height: 74,
-            decoration: BoxDecoration(
+        child: ElevatedButton(
+          onPressed: () async {
+            setState(() => _pressedIndex = index);
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('role', role.name);
+            await Future.delayed(const Duration(milliseconds: 120));
+            setState(() => _pressedIndex = -1);
+            Navigator.pushNamed(
+              context,
+              '/login',
+              arguments: role,
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.22),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-              gradient: LinearGradient(
-                colors: [
-                  color.withOpacity(0.98),
-                  color.withOpacity(0.82),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.22),
-                width: 1.5,
-              ),
             ),
-            child: ElevatedButton(
-              onPressed: () async {
-                setState(() => _pressedIndex = index);
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('role', role.name);
-                await Future.delayed(const Duration(milliseconds: 120));
-                setState(() => _pressedIndex = -1);
-                Navigator.pushNamed(
-                  context,
-                  '/login',
-                  arguments: role,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 32, color: Colors.white),
+              const SizedBox(width: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOut,
-                    child: Icon(icon, size: 32),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.2,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black26,
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
         ),
       ),

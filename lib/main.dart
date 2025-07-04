@@ -121,7 +121,9 @@ class _RootScreenState extends State<RootScreen> {
         dev.log('🔑 Checking login state: isLoggedIn=$isLoggedIn, role=$role, token=$token, name=$name, email=$email');
       }
 
-      await Future.delayed(const Duration(milliseconds: 500)); 
+      // Use a shorter delay during tests
+      final isTestEnvironment = const bool.fromEnvironment('flutter.test');
+      await Future.delayed(isTestEnvironment ? const Duration(milliseconds: 100) : const Duration(milliseconds: 500)); 
 
       // Check for all required fields
       final hasAllFields = isLoggedIn && role != null && token != null && name != null && email != null;
