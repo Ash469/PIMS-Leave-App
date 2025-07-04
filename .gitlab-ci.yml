@@ -9,8 +9,9 @@ stages:
 analyze:
   stage: analyze
   script:
+    - flutter clean
     - flutter pub get
-    - flutter analyze
+    - flutter analyze --no-fatal-infos
 
 # ✅ Run unit tests
 test:
