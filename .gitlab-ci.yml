@@ -27,7 +27,7 @@ build_release:
     # Ensure the Flutter environment is set up
     - echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > android/app/google-services.json
     # Recreate keystore file from base64 variable
-    - echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+    - echo "$KEYSTORE_B64" | base64 -d > android/app/test.jks
 
     # Recreate key.properties file from base64 variable
     - echo "$KEYPROPERTIES_B64" | base64 -d > android/key.properties
