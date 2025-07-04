@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/data_models.dart';
+import 'dart:developer' as dev;
 
 const String parentApiUrl = 'https://college-leave-backend.onrender.com/api/parent/applications';
 const String parentWardsApiUrl = 'https://college-leave-backend.onrender.com/api/parent/ward';
@@ -9,8 +10,8 @@ const String parentConcernsApiUrl = 'https://college-leave-backend.onrender.com/
 
 class ParentService {
   static Future<List<LeaveRequest>> fetchApplications({required String token}) async {
-    print('[ParentService] GET $parentApiUrl');
-    print('[ParentService] Headers: {Authorization: Bearer $token, Content-Type: application/json}');
+    dev.log('[ParentService] GET $parentApiUrl');
+    dev.log('[ParentService] Headers: {Authorization: Bearer $token, Content-Type: application/json}');
     final response = await http.get(
       Uri.parse(parentApiUrl),
       headers: {
@@ -18,8 +19,8 @@ class ParentService {
         'Content-Type': 'application/json',
       },
     );
-    print('[ParentService] Response status: ${response.statusCode}');
-    print('[ParentService] Response body: ${response.body}');
+    dev.log('[ParentService] Response status: ${response.statusCode}');
+    dev.log('[ParentService] Response body: ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final leaves = data['leaves'] as List;
@@ -30,7 +31,7 @@ class ParentService {
   }
 
   static Future<List<Ward>> fetchWards({required String token}) async {
-    print('[ParentService] GET $parentWardsApiUrl');
+    dev.log('[ParentService] GET $parentWardsApiUrl');
     final response = await http.get(
       Uri.parse(parentWardsApiUrl),
       headers: {
@@ -38,8 +39,8 @@ class ParentService {
         'Content-Type': 'application/json',
       },
     );
-    print('[ParentService] Response status: ${response.statusCode}');
-    print('[ParentService] Response body: ${response.body}');
+    dev.log('[ParentService] Response status: ${response.statusCode}');
+    dev.log('[ParentService] Response body: ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final wards = data['wards'] as List;
@@ -54,8 +55,8 @@ class ParentService {
     required String decision,
     required String token,
   }) async {
-    print('[ParentService] POST $parentDecisionApiUrl');
-    print('[ParentService] Body: {token: $parentToken, decision: $decision}');
+    dev.log('[ParentService] POST $parentDecisionApiUrl');
+    dev.log('[ParentService] Body: {token: $parentToken, decision: $decision}');
     final response = await http.post(
       Uri.parse(parentDecisionApiUrl),
       headers: {
@@ -67,15 +68,15 @@ class ParentService {
         'decision': decision,
       }),
     );
-    print('[ParentService] Response status: ${response.statusCode}');
-    print('[ParentService] Response body: ${response.body}');
+    dev.log('[ParentService] Response status: ${response.statusCode}');
+    dev.log('[ParentService] Response body: ${response.body}');
     if (response.statusCode != 200) {
       throw Exception('Failed to send parent decision');
     }
   }
 
   static Future<List<Map<String, dynamic>>> fetchWardConcerns({required String token}) async {
-    print('[ParentService] GET $parentConcernsApiUrl');
+    dev.log('[ParentService] GET $parentConcernsApiUrl');
     final response = await http.get(
       Uri.parse(parentConcernsApiUrl),
       headers: {
@@ -83,8 +84,8 @@ class ParentService {
         'Content-Type': 'application/json',
       },
     );
-    print('[ParentService] Response status: ${response.statusCode}');
-    print('[ParentService] Response body: ${response.body}');
+    dev.log('[ParentService] Response status: ${response.statusCode}');
+    dev.log('[ParentService] Response body: ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return List<Map<String, dynamic>>.from(data['concerns']);

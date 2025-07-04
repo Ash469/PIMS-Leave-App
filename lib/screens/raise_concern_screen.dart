@@ -2,9 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/concern_service.dart';
+import 'dart:developer' as dev;
 
 class RaiseConcernScreen extends StatefulWidget {
-  const RaiseConcernScreen({Key? key}) : super(key: key);
+  const RaiseConcernScreen({super.key});
 
   @override
   State<RaiseConcernScreen> createState() => _RaiseConcernScreenState();
@@ -77,8 +78,8 @@ class _RaiseConcernScreenState extends State<RaiseConcernScreen> {
       _studentNameController.clear();
       _selectedStudent = null;
     });
-    // Debug: print students in batch
-    print('[DEBUG] Students in batch "$batch": $_studentsInBatch');
+    // Debug: dev.log students in batch
+    dev.log('[DEBUG] Students in batch "$batch": $_studentsInBatch');
   }
 
 
@@ -104,7 +105,7 @@ class _RaiseConcernScreenState extends State<RaiseConcernScreen> {
       final description = _descriptionController.text.trim();
       final document = _pickedFile;
 
-      print('[DEBUG] Data: studentName=$studentName, batch=$batch, description=$description, document=${document?.path}');
+      dev.log('[DEBUG] Data: studentName=$studentName, batch=$batch, description=$description, document=${document?.path}');
 
       await _concernService.createConcern(
         studentId: studentId,
@@ -132,7 +133,7 @@ class _RaiseConcernScreenState extends State<RaiseConcernScreen> {
         (route) => false,
       );
     } catch (e) {
-      print('[DEBUG] Error: $e');
+      dev.log('[DEBUG] Error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error raising concern: $e')),
       );

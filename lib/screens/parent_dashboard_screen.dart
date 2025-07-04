@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import '../services/parent_service.dart';
 import '../models/data_models.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // <-- Add this import
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import '../services/auth_service.dart'; // <-- Add this import
-import 'package:flutter/services.dart'; // Add this import
-import 'leave_details_screen.dart'; // <-- Add this import
-import 'notifications_screen.dart'; // <-- Add this import
-import '../services/leave_service.dart'; // <-- Add this import
+import '../services/auth_service.dart';
+import 'package:flutter/services.dart';
+import 'leave_details_screen.dart';
+import 'notifications_screen.dart';
+import '../services/leave_service.dart';
+import 'dart:developer' as dev;
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -27,7 +28,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   String? _Name;
   DateTime? _lastBackPressed; // Add this field
   List<Map<String, dynamic>> _wardConcerns = []; // Add this field
-  final ScrollController _dashboardScrollController = ScrollController(); // Add this field
+  final ScrollController _dashboardScrollController =
+      ScrollController(); // Add this field
 
   @override
   void initState() {
@@ -39,7 +41,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _token = prefs.getString('token');
-      _userEmail = prefs.getString('email') ;
+      _userEmail = prefs.getString('email');
       _Name = prefs.getString('name') ?? 'Parent';
     });
     await _fetchApplications();
@@ -52,7 +54,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       if (_token == null || _token!.isEmpty) {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No authentication token found. Please log in again.')),
+          const SnackBar(
+              content:
+                  Text('No authentication token found. Please log in again.')),
         );
         return;
       }
@@ -85,19 +89,25 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
         final now = DateTime.now();
         if (_lastBackPressed == null ||
             now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
           _lastBackPressed = now;
+
+          if (!context.mounted) return;
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Press back again to exit')),
           );
-          return false;
+          return;
         }
+
         await SystemNavigator.pop();
-        return false;
       },
       child: Scaffold(
         backgroundColor: Colors.green[50],
@@ -113,7 +123,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const NotificationsScreen()),
                 );
               },
             ),
@@ -214,8 +225,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildDashboardTab() {
-    final recentRequests = _leaveRequests.take(2).toList(); // Show only 2 applications
-    final recentConcerns = _wardConcerns.take(2).toList(); // Show only 2 concerns
+    final recentRequests =
+        _leaveRequests.take(2).toList(); // Show only 2 applications
+    final recentConcerns =
+        _wardConcerns.take(2).toList(); // Show only 2 concerns
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -256,18 +269,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             ),
                           ),
                           Text(
-                              _userEmail ?? '',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                              ),
+                            _userEmail ?? '',
+                            style: const TextStyle(
+                              color: Colors.grey,
                             ),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ),         
+            ),
 
             // Recent Applications section (limited to 2)
             Row(
@@ -500,29 +513,31 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
     return GestureDetector(
       onTap: () async {
-        if (_token == null || (request.id ?? '').isEmpty) return;
+        if (_token == null || (request.id).isEmpty) return;
         try {
           if (!mounted) return;
-          print('[ParentDashboard] Fetching leave details for id: ${request.id}');
-          print('[ParentDashboard] Using token: $_token');
+          dev.log(
+              '[ParentDashboard] Fetching leave details for id: ${request.id}');
+          dev.log('[ParentDashboard] Using token: $_token');
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (context) => const Center(child: CircularProgressIndicator()),
+            builder: (context) =>
+                const Center(child: CircularProgressIndicator()),
           );
           final leaveService = LeaveService();
           final rawJson = await leaveService.fetchLeaveById(
             token: _token!,
-            leaveId: request.id ?? '',
+            leaveId: request.id,
           );
-          print('[ParentDashboard] API response for leave details: $rawJson');
+          dev.log('[ParentDashboard] API response for leave details: $rawJson');
           if (!mounted) return;
           Navigator.pop(context); // Remove loading dialog
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => LeaveDetailsScreen(
-                rawJson: (rawJson is Map<String, dynamic> && rawJson.containsKey('leave'))
+                rawJson: (rawJson.containsKey('leave'))
                     ? rawJson['leave'] as Map<String, dynamic>
                     : null,
               ),
@@ -531,12 +546,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         } catch (e) {
           if (mounted) {
             Navigator.pop(context); // Remove loading dialog if present
-            print('[ParentDashboard] Error fetching leave details: $e');
+            dev.log('[ParentDashboard] Error fetching leave details: $e');
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
                 title: const Text('Error'),
-                content: Text('Failed to fetch leave details.\n${e.toString()}'),
+                content:
+                    Text('Failed to fetch leave details.\n${e.toString()}'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
@@ -612,17 +628,21 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Row(
                     children: [
-                      const Icon(Icons.attach_file, size: 16, color: Colors.blue),
+                      const Icon(Icons.attach_file,
+                          size: 16, color: Colors.blue),
                       const SizedBox(width: 4),
                       GestureDetector(
                         onTap: () async {
-                          final url = Uri.parse('https://college-leave-backend.onrender.com/api/drive/${request.attachmentPath}');
+                          final url = Uri.parse(
+                              'https://college-leave-backend.onrender.com/api/drive/${request.attachmentPath}');
                           try {
-                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                            await launchUrl(url,
+                                mode: LaunchMode.externalApplication);
                           } catch (e) {
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Could not open attachment.')),
+                              const SnackBar(
+                                  content: Text('Could not open attachment.')),
                             );
                           }
                         },
@@ -640,7 +660,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
 
               // Show parent's comment if present in parentStatus.reason
-              if (request.parentStatus.reason != null && request.parentStatus.reason!.isNotEmpty)
+              if (request.parentStatus.reason != null &&
+                  request.parentStatus.reason!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Container(
@@ -723,13 +744,15 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           children: [
             Text('Student ID: ${request.studentId}'),
             Text('Reason: ${request.reason}'),
-            Text('Duration: ${_formatDate(request.startDate)} to ${_formatDate(request.endDate)}'),
+            Text(
+                'Duration: ${_formatDate(request.startDate)} to ${_formatDate(request.endDate)}'),
             const SizedBox(height: 16),
             TextField(
               controller: commentController,
               decoration: InputDecoration(
-                labelText: isApproval ? 'Comment (Optional)' : 'Reason for rejection',
-                hintText: isApproval 
+                labelText:
+                    isApproval ? 'Comment (Optional)' : 'Reason for rejection',
+                hintText: isApproval
                     ? 'e.g., Take care, Get well soon'
                     : 'e.g., Need more specific reason',
                 border: const OutlineInputBorder(),
@@ -759,11 +782,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
-  void _handleApproval(LeaveRequest request, bool isApproval, String comment) async {
+  void _handleApproval(
+      LeaveRequest request, bool isApproval, String comment) async {
     if (_token == null) return;
     try {
       await ParentService.sendParentDecision(
-        parentToken: request.parentToken ?? '', // parentToken must be present in LeaveRequest
+        parentToken: request.parentToken ??
+            '', // parentToken must be present in LeaveRequest
         decision: isApproval ? 'approved' : 'rejected',
         token: _token!,
       );
@@ -771,7 +796,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isApproval 
+            isApproval
                 ? 'Leave request approved successfully!'
                 : 'Leave request rejected.',
           ),
@@ -781,7 +806,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to ${isApproval ? 'approve' : 'reject'} leave request.'),
+          content: Text(
+              'Failed to ${isApproval ? 'approve' : 'reject'} leave request.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -822,12 +848,15 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     const SizedBox(width: 4),
                     GestureDetector(
                       onTap: () async {
-                        final url = Uri.parse('https://college-leave-backend.onrender.com/api/drive/${concern['documentUrl']}');
+                        final url = Uri.parse(
+                            'https://college-leave-backend.onrender.com/api/drive/${concern['documentUrl']}');
                         try {
-                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                          await launchUrl(url,
+                              mode: LaunchMode.externalApplication);
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Could not open attachment.')),
+                            const SnackBar(
+                                content: Text('Could not open attachment.')),
                           );
                         }
                       },
@@ -849,5 +878,3 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 }
-
-

@@ -7,7 +7,7 @@ import '../services/leave_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LeaveRequestScreen extends StatefulWidget {
-  const LeaveRequestScreen({Key? key}) : super(key: key);
+  const LeaveRequestScreen({super.key});
 
   @override
   State<LeaveRequestScreen> createState() => _LeaveRequestScreenState();
@@ -61,7 +61,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         reason: reason,
         document: document,
       );
-      // If no exception, treat as success (status 201)
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Leave request submitted!')),
       );
@@ -78,6 +78,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         (route) => false,
       );
     } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to submit leave. Please try again.')),
       );
@@ -132,10 +133,12 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                           lastDate: DateTime.now().add(const Duration(days: 365)),
                         );
                         if (pickedDate != null) {
+                         
                           final pickedTime = await showTimePicker(
                             context: context,
                             initialTime: TimeOfDay.fromDateTime(selectedStartDate ?? DateTime.now()),
                           );
+                          if (!mounted) return;
                           DateTime finalDateTime = pickedDate;
                           if (pickedTime != null) {
                             finalDateTime = DateTime(

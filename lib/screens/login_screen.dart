@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:async';
 import 'dart:ui';
+import 'dart:developer' as dev; 
 
 class LoginScreen extends StatefulWidget {
   final dynamic role;
@@ -45,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     setState(() {
       role = prefs.getString('role') ?? '';
     });
-    print('Loaded role from prefs: $role');
+    dev.log('Loaded role from prefs: $role');
   }
 
   Future<void> signInWithGoogle() async {
@@ -79,13 +80,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         user = userCredential.user;
       });
 
-      print('Signed in as: ${user!.email}');
+      dev.log('Signed in as: ${user!.email}');
 
       final email = user!.email ?? '';
       final savedRole = prefs.getString('role') ?? '';
       role = savedRole;
       final verifyResponse = await _authService.verifyGoogleUser(email: email, role: role);
-      print('verify-google-user response: $verifyResponse'); // Debug print
+      dev.log('verify-google-user response: $verifyResponse'); // Debug dev.log
 
       // Check if user is verified and token is present
       if (verifyResponse['verified'] != true || verifyResponse['token'] == null) {
@@ -119,19 +120,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         await prefs.setString('name', verifyResponse['name'].toString());
       }
 
-      // Print all stored values for debugging
-      print('All SharedPreferences after login:');
-      print('token: ${prefs.getString('token')}');
-      print('role: ${prefs.getString('role')}');
-      print('isLoggedIn: ${prefs.getBool('isLoggedIn')}');
-      print('ID: ${prefs.getString('id')}');
-      print('email: ${prefs.getString('email')}');
-      print('name: ${prefs.getString('name')}');
-      print('gender: ${prefs.getString('gender')}');
+      // dev.log all stored values for debugging
+      dev.log('All SharedPreferences after login:');
+      dev.log('token: ${prefs.getString('token')}');
+      dev.log('role: ${prefs.getString('role')}');
+      dev.log('isLoggedIn: ${prefs.getBool('isLoggedIn')}');
+      dev.log('ID: ${prefs.getString('id')}');
+      dev.log('email: ${prefs.getString('email')}');
+      dev.log('name: ${prefs.getString('name')}');
+      dev.log('gender: ${prefs.getString('gender')}');
     
       // Step 3: Get FCM token and register
       final fcmToken = await FirebaseMessaging.instance.getToken();
-      print('Obtained FCM token: $fcmToken');
+      dev.log('Obtained FCM token: $fcmToken');
       if (fcmToken != null) {
         // Store FCM token in SharedPreferences
         await prefs.setString('fcm_token', fcmToken);
@@ -143,14 +144,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           role: role,
           gender: prefs.getString('gender'),
         );
-        print('register-fcm-token response: $registerResponse');
+        dev.log('register-fcm-token response: $registerResponse');
 
         // Set isLoggedIn to true after successful FCM registration
         await prefs.setBool('isLoggedIn', true);
 
         // Ask notification permission
         final settings = await FirebaseMessaging.instance.requestPermission();
-        debugPrint('Notification permission status: ${settings.authorizationStatus}');
+        dev.log('Notification permission status: ${settings.authorizationStatus}');
         if (settings.authorizationStatus == AuthorizationStatus.authorized ||
             settings.authorizationStatus == AuthorizationStatus.provisional) {
           final savedRole = prefs.getString('role') ?? '';
@@ -163,22 +164,22 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           } else if (savedRole == 'guard') {
             Navigator.of(context).pushReplacementNamed('/guard-dashboard');
           } else {
-            print('Unknown role: $savedRole');
+            dev.log('Unknown role: $savedRole');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Unknown role: "$savedRole", please try again.')),
             );
           }
         } else {
-          print('Notification permission not granted');
+          dev.log('Notification permission not granted');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Notification permission is required to proceed. Please enable notifications in your device settings.')),
           );
         }
       } else {
-        print('FCM token is null, skipping FCM registration');
+        dev.log('FCM token is null, skipping FCM registration');
       }
     } catch (e) {
-      print('Error signing in with Google: $e');
+      dev.log('Error signing in with Google: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error signing in with Google: $e')),
       );
@@ -204,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     await prefs.remove('email');
     await prefs.remove('name');
     await prefs.remove('token');
-    print('User signed out and SharedPreferences cleared');
+    dev.log('User signed out and SharedPreferences cleared');
     setState(() {
       user = null;
     });

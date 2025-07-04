@@ -14,6 +14,7 @@ import 'screens/qr_scanner_screen.dart';
 import 'models/data_models.dart';
 import 'firebase_options.dart';
 import 'services/fcm_service.dart';
+import 'dart:developer' as dev;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,11 +27,11 @@ void main() async {
     final fcmService = FCMService();
     await fcmService.initialize();
     if (kDebugMode) {
-      print('🔔 FCM Service initialized successfully');
+      dev.log('🔔 FCM Service initialized successfully');
     }
   } catch (e) {
     if (kDebugMode) {
-      print('⚠️ Error initializing FCM Service: $e');
+      dev.log('⚠️ Error initializing FCM Service: $e');
     }
   }
 
@@ -117,7 +118,7 @@ class _RootScreenState extends State<RootScreen> {
       // Add more fields if needed
 
       if (kDebugMode) {
-        print('🔑 Checking login state: isLoggedIn=$isLoggedIn, role=$role, token=$token, name=$name, email=$email');
+        dev.log('🔑 Checking login state: isLoggedIn=$isLoggedIn, role=$role, token=$token, name=$name, email=$email');
       }
 
       await Future.delayed(const Duration(milliseconds: 500)); 
@@ -125,8 +126,8 @@ class _RootScreenState extends State<RootScreen> {
       // Check for all required fields
       final hasAllFields = isLoggedIn && role != null && token != null && name != null && email != null;
 
-      if (mounted) {
-        if (hasAllFields) {
+      if (hasAllFields) {
+        if (mounted) {
           if (role == 'student') {
             Navigator.of(context).pushReplacementNamed('/student-dashboard');
           } else if (role == 'parent') {
@@ -138,19 +139,21 @@ class _RootScreenState extends State<RootScreen> {
           } else {
             Navigator.of(context).pushReplacementNamed('/role-selection');
           }
-        } else {
-          // Clear any partial/invalid login state
-          await prefs.remove('isLoggedIn');
-          await prefs.remove('role');
-          await prefs.remove('token');
-          await prefs.remove('name');
-          await prefs.remove('email');
+        }
+      } else {
+        // Clear any partial/invalid login state
+        await prefs.remove('isLoggedIn');
+        await prefs.remove('role');
+        await prefs.remove('token');
+        await prefs.remove('name');
+        await prefs.remove('email');
+        if (mounted) {
           Navigator.of(context).pushReplacementNamed('/role-selection');
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        print('⚠️ Error loading SharedPreferences: $e');
+        dev.log('⚠️ Error loading SharedPreferences: $e');
       }
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/role-selection');

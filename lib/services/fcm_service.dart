@@ -1,8 +1,8 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/material.dart'; // <-- Add for navigation if needed
-import 'dart:io'; // <-- For platform checks
+import 'dart:io'; 
+import 'dart:developer' as dev;
 
 class FCMService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -16,9 +16,9 @@ class FCMService {
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         if (kDebugMode) {
-          print('🔔 Local notification tapped: ${response.payload}');
+          dev.log('🔔 Local notification tapped: ${response.payload}');
         }
-        // TODO: Handle notification tap if needed
+      
       },
     );
 
@@ -36,13 +36,13 @@ class FCMService {
     // Get the token (optional, for debugging)
     final token = await _messaging.getToken();
     if (kDebugMode) {
-      print('🔔 FCM Token: $token');
+      dev.log('🔔 FCM Token: $token');
     }
 
     // Listen for foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       if (kDebugMode) {
-        print('🔔 FCM Foreground message received: ${message.notification?.title} - ${message.notification?.body}');
+        dev.log('🔔 FCM Foreground message received: ${message.notification?.title} - ${message.notification?.body}');
       }
       // Show local notification
       if (message.notification != null) {
@@ -66,15 +66,9 @@ class FCMService {
     // Listen for background messages (when app is opened from notification)
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       if (kDebugMode) {
-        print('🔔 FCM onMessageOpenedApp: ${message.notification?.title} - ${message.notification?.body}');
+        dev.log('🔔 FCM onMessageOpenedApp: ${message.notification?.title} - ${message.notification?.body}');
       }
-      // TODO: Handle navigation if needed
     });
 
-    // Optionally handle background messages (requires a top-level handler)
-    // See Firebase docs for setup if needed
-
-    // The warning "Unable to log event: analytics library is missing" is safe to ignore.
-    // It does not affect notification delivery. No code changes are required.
   }
 }

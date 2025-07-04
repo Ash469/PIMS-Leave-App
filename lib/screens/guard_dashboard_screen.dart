@@ -4,12 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/guard_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'leave_details_screen.dart';
-import 'package:flutter/services.dart'; // Add this import
-import 'notifications_screen.dart'; // <-- Add this import
-import 'package:url_launcher/url_launcher.dart'; // <-- Add this import
-import '../services/concern_service.dart'; // Add this import
-import 'raise_concern_screen.dart'; // Add this import
-import 'package:file_picker/file_picker.dart'; // <-- Add this import
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'raise_concern_screen.dart';
+import 'dart:developer' as dev;
 
 class GuardDashboardScreen extends StatefulWidget {
   const GuardDashboardScreen({super.key});
@@ -18,14 +16,14 @@ class GuardDashboardScreen extends StatefulWidget {
   State<GuardDashboardScreen> createState() => _GuardDashboardScreenState();
 }
 
-class _GuardDashboardScreenState extends State<GuardDashboardScreen> with SingleTickerProviderStateMixin {
+class _GuardDashboardScreenState extends State<GuardDashboardScreen>
+    with SingleTickerProviderStateMixin {
   late Future<Map<String, dynamic>> _departedAwaitingReturnFuture;
   late Future<Map<String, dynamic>> _allDepartureFuture;
   String? jwtToken;
   late TabController _tabController;
-  String _filter = 'All'; // All, Pending, Approved, Rejected
-  DateTime? _lastBackPressed; // Add this field
-  final ConcernService _concernService = ConcernService(); // Add ConcernService instance
+  String _filter = 'All';
+  DateTime? _lastBackPressed;
 
   @override
   void initState() {
@@ -40,13 +38,13 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
     setState(() {
       jwtToken = token;
       if (jwtToken != null) {
-        print('Loaded jwtToken: $jwtToken'); // Debugging log
+        dev.log('Loaded jwtToken: $jwtToken');
         _departedAwaitingReturnFuture =
             GuardService.getDepartedAwaitingReturn(jwtToken!);
         _allDepartureFuture =
             GuardService.getPendingDepartureApplications(jwtToken!);
       } else {
-        print('JWT token is null. Please log in again.'); // Debugging log
+        dev.log('JWT token is null. Please log in again.');
       }
     });
   }
@@ -150,7 +148,7 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
     try {
       final dt = DateTime.parse(isoString).toLocal();
       return "${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} "
-             "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+          "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
     } catch (_) {
       return isoString;
     }
@@ -202,15 +200,19 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
           rejectionReason: rejectionReason,
         );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Leave $decision successfully')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Leave $decision successfully')),
+          );
+        }
         _refreshData();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -226,6 +228,7 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
       );
 
       if (matchingLeave == null) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No matching leave found for return.')),
         );
@@ -236,9 +239,10 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
         jwtToken: jwtToken!,
         id: leaveId,
       );
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Student marked as returned successfully')),
+        const SnackBar(
+            content: Text('Student marked as returned successfully')),
       );
       _refreshData();
     } catch (e) {
@@ -248,7 +252,8 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
     }
   }
 
-  Widget _buildQrScannerButton(Function(String) onQrCodeScanned, {required String tab}) {
+  Widget _buildQrScannerButton(Function(String) onQrCodeScanned,
+      {required String tab}) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () {
@@ -306,19 +311,25 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         final now = DateTime.now();
         if (_lastBackPressed == null ||
             now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
           _lastBackPressed = now;
+
+          if (!context.mounted) return;
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Press back again to exit')),
           );
-          return false;
+          return;
         }
+
+        // Exits the app
         await SystemNavigator.pop();
-        return false;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -359,6 +370,7 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                   try {
                     await GoogleSignIn().signOut();
                   } catch (_) {}
+                  if (!mounted) return;
                   if (mounted) {
                     Navigator.pushNamedAndRemoveUntil(
                       context,
@@ -379,7 +391,8 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const RaiseConcernScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const RaiseConcernScreen()),
                 );
               },
             ),
@@ -403,28 +416,43 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  _buildQrScannerButton(_handleQrCodeForDeparture, tab: 'departure'),
+                  _buildQrScannerButton(_handleQrCodeForDeparture,
+                      tab: 'departure'),
                   const SizedBox(height: 16),
                   Expanded(
                     child: FutureBuilder<Map<String, dynamic>>(
                       future: _allDepartureFuture,
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: CircularProgressIndicator());
                         } else if (snapshot.hasError) {
-                          return Center(child: Text('Error: ${snapshot.error}'));
+                          return Center(
+                              child: Text('Error: ${snapshot.error}'));
                         } else if (snapshot.hasData) {
                           final leaves = snapshot.data!['leaves'] ?? [];
                           // Filtering and sorting directly on the response
                           List<dynamic> filtered = leaves;
                           if (_filter != 'All') {
-                            filtered = leaves.where((app) => (app['guardStatus']?['status'] ?? 'pending') == _filter.toLowerCase()).toList();
+                            filtered = leaves
+                                .where((app) =>
+                                    (app['guardStatus']?['status'] ??
+                                        'pending') ==
+                                    _filter.toLowerCase())
+                                .toList();
                           }
                           filtered.sort((a, b) {
-                            String aStatus = (a['guardStatus']?['status'] ?? 'pending');
-                            String bStatus = (b['guardStatus']?['status'] ?? 'pending');
-                            if (aStatus == 'pending' && bStatus != 'pending') return -1;
-                            if (aStatus != 'pending' && bStatus == 'pending') return 1;
+                            String aStatus =
+                                (a['guardStatus']?['status'] ?? 'pending');
+                            String bStatus =
+                                (b['guardStatus']?['status'] ?? 'pending');
+                            if (aStatus == 'pending' && bStatus != 'pending') {
+                              return -1;
+                            }
+                            if (aStatus != 'pending' && bStatus == 'pending') {
+                              return 1;
+                            }
                             return 0;
                           });
 
@@ -435,7 +463,9 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                                 children: [
                                   const Text(
                                     'Applications',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                   const Spacer(),
                                   PopupMenuButton<String>(
@@ -446,10 +476,17 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                                       });
                                     },
                                     itemBuilder: (context) => [
-                                      const PopupMenuItem(value: 'All', child: Text('All')),
-                                      const PopupMenuItem(value: 'Pending', child: Text('Pending')),
-                                      const PopupMenuItem(value: 'Approved', child: Text('Approved')),
-                                      const PopupMenuItem(value: 'Rejected', child: Text('Rejected')),
+                                      const PopupMenuItem(
+                                          value: 'All', child: Text('All')),
+                                      const PopupMenuItem(
+                                          value: 'Pending',
+                                          child: Text('Pending')),
+                                      const PopupMenuItem(
+                                          value: 'Approved',
+                                          child: Text('Approved')),
+                                      const PopupMenuItem(
+                                          value: 'Rejected',
+                                          child: Text('Rejected')),
                                     ],
                                   ),
                                 ],
@@ -457,122 +494,236 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                               const SizedBox(height: 8),
                               Expanded(
                                 child: filtered.isEmpty
-                                    ? const Center(child: Text('No applications found.'))
+                                    ? const Center(
+                                        child: Text('No applications found.'))
                                     : ListView.builder(
                                         itemCount: filtered.length,
                                         itemBuilder: (context, idx) {
                                           final app = filtered[idx];
-                                          final status = (app['guardStatus']?['status'] ?? 'pending') as String;
-                                          final statusColor = status == 'approved'
-                                              ? Colors.green
-                                              : status == 'rejected'
-                                                  ? Colors.red
-                                                  : Colors.orange;
+                                          final status = (app['guardStatus']
+                                                  ?['status'] ??
+                                              'pending') as String;
+                                          final statusColor =
+                                              status == 'approved'
+                                                  ? Colors.green
+                                                  : status == 'rejected'
+                                                      ? Colors.red
+                                                      : Colors.orange;
                                           // Card UI with limited width and better design
                                           return Center(
                                             child: ConstrainedBox(
-                                              constraints: const BoxConstraints(maxWidth: 420),
+                                              constraints: const BoxConstraints(
+                                                  maxWidth: 420),
                                               child: Card(
                                                 elevation: 4,
-                                                margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 10,
+                                                        horizontal: 4),
                                                 shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(16),
-                                                  side: BorderSide(color: statusColor.withOpacity(0.3), width: 1.2),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  side: BorderSide(
+                                                      color: statusColor
+                                                          .withOpacity(0.3),
+                                                      width: 1.2),
                                                 ),
                                                 child: InkWell(
-                                                  borderRadius: BorderRadius.circular(16),
-                                                  onTap: () => _showApplicationDetails(app['_id']),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  onTap: () =>
+                                                      _showApplicationDetails(
+                                                          app['_id']),
                                                   child: Padding(
-                                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        vertical: 12,
+                                                        horizontal: 16),
                                                     child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
                                                       children: [
                                                         Row(
                                                           children: [
                                                             CircleAvatar(
-                                                              backgroundColor: Colors.purple.shade100,
-                                                              child: Icon(Icons.person, color: Colors.purple.shade700),
+                                                              backgroundColor:
+                                                                  Colors.purple
+                                                                      .shade100,
+                                                              child: Icon(
+                                                                  Icons.person,
+                                                                  color: Colors
+                                                                      .purple
+                                                                      .shade700),
                                                             ),
-                                                            const SizedBox(width: 12),
+                                                            const SizedBox(
+                                                                width: 12),
                                                             Expanded(
                                                               child: Text(
-                                                                app['student']?['name'] ?? 'Unknown',
-                                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                                                app['student']?[
+                                                                        'name'] ??
+                                                                    'Unknown',
+                                                                style: const TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold,
+                                                                    fontSize:
+                                                                        16),
                                                               ),
                                                             ),
                                                             Chip(
                                                               label: Text(
-                                                                status[0].toUpperCase() + status.substring(1),
-                                                                style: TextStyle(
-                                                                  color: statusColor,
-                                                                  fontWeight: FontWeight.bold,
+                                                                status[0]
+                                                                        .toUpperCase() +
+                                                                    status
+                                                                        .substring(
+                                                                            1),
+                                                                style:
+                                                                    TextStyle(
+                                                                  color:
+                                                                      statusColor,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
                                                                 ),
                                                               ),
-                                                              backgroundColor: statusColor.withOpacity(0.15),
+                                                              backgroundColor:
+                                                                  statusColor
+                                                                      .withOpacity(
+                                                                          0.15),
                                                             ),
                                                           ],
                                                         ),
-                                                        const SizedBox(height: 8),
+                                                        const SizedBox(
+                                                            height: 8),
                                                         Row(
                                                           children: [
-                                                            const Icon(Icons.info_outline, size: 18, color: Colors.grey),
-                                                            const SizedBox(width: 4),
+                                                            const Icon(
+                                                                Icons
+                                                                    .info_outline,
+                                                                size: 18,
+                                                                color: Colors
+                                                                    .grey),
+                                                            const SizedBox(
+                                                                width: 4),
                                                             Expanded(
                                                               child: Text(
-                                                                app['reason'] ?? '-',
-                                                                style: const TextStyle(fontSize: 14),
+                                                                app['reason'] ??
+                                                                    '-',
+                                                                style:
+                                                                    const TextStyle(
+                                                                        fontSize:
+                                                                            14),
                                                                 maxLines: 2,
-                                                                overflow: TextOverflow.ellipsis,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
                                                               ),
                                                             ),
                                                           ],
                                                         ),
-                                                        const SizedBox(height: 6),
+                                                        const SizedBox(
+                                                            height: 6),
                                                         Row(
                                                           children: [
-                                                            const Icon(Icons.calendar_today, size: 16, color: Colors.orange),
-                                                            const SizedBox(width: 4),
+                                                            const Icon(
+                                                                Icons
+                                                                    .calendar_today,
+                                                                size: 16,
+                                                                color: Colors
+                                                                    .orange),
+                                                            const SizedBox(
+                                                                width: 4),
                                                             Text(
                                                               'From: ${app['startDate']?.substring(0, 10) ?? '-'}',
-                                                              style: const TextStyle(fontSize: 13),
+                                                              style:
+                                                                  const TextStyle(
+                                                                      fontSize:
+                                                                          13),
                                                             ),
-                                                            const SizedBox(width: 10),
-                                                            const Icon(Icons.arrow_forward, size: 16, color: Colors.blueGrey),
-                                                            const SizedBox(width: 4),
+                                                            const SizedBox(
+                                                                width: 10),
+                                                            const Icon(
+                                                                Icons
+                                                                    .arrow_forward,
+                                                                size: 16,
+                                                                color: Colors
+                                                                    .blueGrey),
+                                                            const SizedBox(
+                                                                width: 4),
                                                             Text(
                                                               'To: ${app['endDate']?.substring(0, 10) ?? '-'}',
-                                                              style: const TextStyle(fontSize: 13),
+                                                              style:
+                                                                  const TextStyle(
+                                                                      fontSize:
+                                                                          13),
                                                             ),
                                                           ],
                                                         ),
-                                                        if (app['documentUrl'] != null)
+                                                        if (app['documentUrl'] !=
+                                                            null)
                                                           Padding(
-                                                            padding: const EdgeInsets.only(top: 6),
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .only(
+                                                                    top: 6),
                                                             child: Row(
                                                               children: [
-                                                                const Icon(Icons.attach_file, size: 16, color: Colors.blue),
-                                                                const SizedBox(width: 4),
+                                                                const Icon(
+                                                                    Icons
+                                                                        .attach_file,
+                                                                    size: 16,
+                                                                    color: Colors
+                                                                        .blue),
+                                                                const SizedBox(
+                                                                    width: 4),
                                                                 Flexible(
                                                                   child: Text(
                                                                     app['documentUrl'],
-                                                                    style: const TextStyle(
-                                                                      color: Colors.blue,
-                                                                      decoration: TextDecoration.underline,
-                                                                      fontSize: 12,
+                                                                    style:
+                                                                        const TextStyle(
+                                                                      color: Colors
+                                                                          .blue,
+                                                                      decoration:
+                                                                          TextDecoration
+                                                                              .underline,
+                                                                      fontSize:
+                                                                          12,
                                                                     ),
-                                                                    overflow: TextOverflow.ellipsis,
+                                                                    overflow:
+                                                                        TextOverflow
+                                                                            .ellipsis,
                                                                   ),
                                                                 ),
                                                                 IconButton(
-                                                                  icon: const Icon(Icons.visibility, color: Colors.blue, size: 20),
-                                                                  tooltip: 'Preview Document',
-                                                                  onPressed: () async {
-                                                                    final url = app['documentUrl'];
-                                                                    if (url != null && await canLaunchUrl(Uri.parse(url))) {
-                                                                      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                                                                  icon: const Icon(
+                                                                      Icons
+                                                                          .visibility,
+                                                                      color: Colors
+                                                                          .blue,
+                                                                      size: 20),
+                                                                  tooltip:
+                                                                      'Preview Document',
+                                                                  onPressed:
+                                                                      () async {
+                                                                    final url =
+                                                                        app['documentUrl'];
+                                                                    if (url !=
+                                                                            null &&
+                                                                        await canLaunchUrl(
+                                                                            Uri.parse(url))) {
+                                                                      await launchUrl(
+                                                                          Uri.parse(
+                                                                              url),
+                                                                          mode:
+                                                                              LaunchMode.externalApplication);
                                                                     } else {
-                                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                                        const SnackBar(content: Text('Could not open document')),
+                                                                      if (!mounted) return;
+                                                                      ScaffoldMessenger.of(context).showSnackBar(  
+                                                                        const SnackBar(
+                                                                          content:
+                                                                              Text('Could not open document'),
+                                                                        ),
                                                                       );
                                                                     }
                                                                   },
@@ -580,44 +731,88 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                                                               ],
                                                             ),
                                                           ),
-                                                        const SizedBox(height: 10),
+                                                        const SizedBox(
+                                                            height: 10),
                                                         // Only show approve/reject icons for pending, on left/right
                                                         // Only show approve/reject or admin stopped for pending status
                                                         if (status == 'pending')
                                                           (() {
-                                                            final adminStatus = app['adminStatus']?['status'] ?? '';
-                                                            if (adminStatus == 'stopped') {
+                                                            final adminStatus =
+                                                                app['adminStatus']
+                                                                        ?[
+                                                                        'status'] ??
+                                                                    '';
+                                                            if (adminStatus ==
+                                                                'stopped') {
                                                               return Row(
                                                                 children: [
-                                                                  const Icon(Icons.block, color: Colors.red, size: 16),
-                                                                  const SizedBox(width: 4),
+                                                                  const Icon(
+                                                                      Icons
+                                                                          .block,
+                                                                      color: Colors
+                                                                          .red,
+                                                                      size: 16),
+                                                                  const SizedBox(
+                                                                      width: 4),
                                                                   const Text(
                                                                     'Admin Stopped',
-                                                                    style: TextStyle(fontSize: 14, color: Colors.red, fontWeight: FontWeight.bold),
+                                                                    style: TextStyle(
+                                                                        fontSize:
+                                                                            14,
+                                                                        color: Colors
+                                                                            .red,
+                                                                        fontWeight:
+                                                                            FontWeight.bold),
                                                                   ),
                                                                 ],
                                                               );
                                                             } else {
                                                               return Row(
-                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                mainAxisAlignment:
+                                                                    MainAxisAlignment
+                                                                        .spaceBetween,
                                                                 children: [
                                                                   Container(
-                                                                    decoration: BoxDecoration(
-                                                                      borderRadius: BorderRadius.circular(12),
-                                                                      gradient: LinearGradient(
-                                                                        colors: [Colors.green.withOpacity(0.2), Colors.green.withOpacity(0.5)],
-                                                                        begin: Alignment.topLeft,
-                                                                        end: Alignment.bottomRight,
+                                                                    decoration:
+                                                                        BoxDecoration(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                              12),
+                                                                      gradient:
+                                                                          LinearGradient(
+                                                                        colors: [
+                                                                          Colors
+                                                                              .green
+                                                                              .withOpacity(0.2),
+                                                                          Colors
+                                                                              .green
+                                                                              .withOpacity(0.5)
+                                                                        ],
+                                                                        begin: Alignment
+                                                                            .topLeft,
+                                                                        end: Alignment
+                                                                            .bottomRight,
                                                                       ),
-                                                                      border: Border.all(color: Colors.green.withOpacity(0.4), width: 1),
+                                                                      border: Border.all(
+                                                                          color: Colors.green.withOpacity(
+                                                                              0.4),
+                                                                          width:
+                                                                              1),
                                                                     ),
-                                                                    child: ElevatedButton(
-                                                                      onPressed: () async {
-                                                                        final confirm = await showDialog<bool>(
-                                                                          context: context,
-                                                                          builder: (context) => AlertDialog(
-                                                                            title: const Text('Approve Application'),
-                                                                            content: const Text('Are you sure you want to approve this application?'),
+                                                                    child:
+                                                                        ElevatedButton(
+                                                                      onPressed:
+                                                                          () async {
+                                                                        final confirm =
+                                                                            await showDialog<bool>(
+                                                                          context:
+                                                                              context,
+                                                                          builder: (context) =>
+                                                                              AlertDialog(
+                                                                            title:
+                                                                                const Text('Approve Application'),
+                                                                            content:
+                                                                                const Text('Are you sure you want to approve this application?'),
                                                                             actions: [
                                                                               TextButton(
                                                                                 onPressed: () => Navigator.pop(context, false),
@@ -630,35 +825,67 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                                                                             ],
                                                                           ),
                                                                         );
-                                                                        if (confirm == true) {
-                                                                          await _handleDecision(app['_id'], 'approved');
+                                                                        if (confirm ==
+                                                                            true) {
+                                                                          await _handleDecision(
+                                                                              app['_id'],
+                                                                              'approved');
                                                                         }
                                                                       },
-                                                                      style: ElevatedButton.styleFrom(
-                                                                        backgroundColor: Colors.transparent,
-                                                                        shadowColor: Colors.transparent,
-                                                                        foregroundColor: Colors.green,
+                                                                      style: ElevatedButton
+                                                                          .styleFrom(
+                                                                        backgroundColor:
+                                                                            Colors.transparent,
+                                                                        shadowColor:
+                                                                            Colors.transparent,
+                                                                        foregroundColor:
+                                                                            Colors.green,
                                                                       ),
-                                                                      child: const Text('Approve'),
+                                                                      child: const Text(
+                                                                          'Approve'),
                                                                     ),
                                                                   ),
                                                                   Container(
-                                                                    decoration: BoxDecoration(
-                                                                      borderRadius: BorderRadius.circular(12),
-                                                                      gradient: LinearGradient(
-                                                                        colors: [Colors.red.withOpacity(0.2), Colors.red.withOpacity(0.5)],
-                                                                        begin: Alignment.topLeft,
-                                                                        end: Alignment.bottomRight,
+                                                                    decoration:
+                                                                        BoxDecoration(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                              12),
+                                                                      gradient:
+                                                                          LinearGradient(
+                                                                        colors: [
+                                                                          Colors
+                                                                              .red
+                                                                              .withOpacity(0.2),
+                                                                          Colors
+                                                                              .red
+                                                                              .withOpacity(0.5)
+                                                                        ],
+                                                                        begin: Alignment
+                                                                            .topLeft,
+                                                                        end: Alignment
+                                                                            .bottomRight,
                                                                       ),
-                                                                      border: Border.all(color: Colors.red.withOpacity(0.4), width: 1),
+                                                                      border: Border.all(
+                                                                          color: Colors.red.withOpacity(
+                                                                              0.4),
+                                                                          width:
+                                                                              1),
                                                                     ),
-                                                                    child: ElevatedButton(
-                                                                      onPressed: () async {
-                                                                        final confirm = await showDialog<bool>(
-                                                                          context: context,
-                                                                          builder: (context) => AlertDialog(
-                                                                            title: const Text('Reject Application'),
-                                                                            content: const Text('Are you sure you want to reject this application?'),
+                                                                    child:
+                                                                        ElevatedButton(
+                                                                      onPressed:
+                                                                          () async {
+                                                                        final confirm =
+                                                                            await showDialog<bool>(
+                                                                          context:
+                                                                              context,
+                                                                          builder: (context) =>
+                                                                              AlertDialog(
+                                                                            title:
+                                                                                const Text('Reject Application'),
+                                                                            content:
+                                                                                const Text('Are you sure you want to reject this application?'),
                                                                             actions: [
                                                                               TextButton(
                                                                                 onPressed: () => Navigator.pop(context, false),
@@ -671,33 +898,60 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                                                                             ],
                                                                           ),
                                                                         );
-                                                                        if (confirm == true) {
-                                                                          await _handleDecision(app['_id'], 'rejected');
+                                                                        if (confirm ==
+                                                                            true) {
+                                                                          await _handleDecision(
+                                                                              app['_id'],
+                                                                              'rejected');
                                                                         }
                                                                       },
-                                                                      style: ElevatedButton.styleFrom(
-                                                                        backgroundColor: Colors.transparent,
-                                                                        shadowColor: Colors.transparent,
-                                                                        foregroundColor: Colors.red,
+                                                                      style: ElevatedButton
+                                                                          .styleFrom(
+                                                                        backgroundColor:
+                                                                            Colors.transparent,
+                                                                        shadowColor:
+                                                                            Colors.transparent,
+                                                                        foregroundColor:
+                                                                            Colors.red,
                                                                       ),
-                                                                      child: const Text('Reject'),
+                                                                      child: const Text(
+                                                                          'Reject'),
                                                                     ),
                                                                   ),
                                                                 ],
                                                               );
                                                             }
                                                           })(),
-                                                        if (status == 'rejected' && app['guardStatus']?['reason'] != null)
+                                                        if (status ==
+                                                                'rejected' &&
+                                                            app['guardStatus']?[
+                                                                    'reason'] !=
+                                                                null)
                                                           Padding(
-                                                            padding: const EdgeInsets.only(top: 4),
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .only(
+                                                                    top: 4),
                                                             child: Row(
                                                               children: [
-                                                                const Icon(Icons.info, color: Colors.red, size: 16),
-                                                                const SizedBox(width: 4),
+                                                                const Icon(
+                                                                    Icons.info,
+                                                                    color: Colors
+                                                                        .red,
+                                                                    size: 16),
+                                                                const SizedBox(
+                                                                    width: 4),
                                                                 Expanded(
                                                                   child: Text(
-                                                                    app['guardStatus']?['reason'] ?? '',
-                                                                    style: const TextStyle(fontSize: 12, color: Colors.red),
+                                                                    app['guardStatus']
+                                                                            ?[
+                                                                            'reason'] ??
+                                                                        '',
+                                                                    style: const TextStyle(
+                                                                        fontSize:
+                                                                            12,
+                                                                        color: Colors
+                                                                            .red),
                                                                   ),
                                                                 ),
                                                               ],
@@ -709,11 +963,10 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                                                 ),
                                               ),
                                             ),
-                                            );
-                                          },
-                                        ),
+                                          );
+                                        },
                                       ),
-                              
+                              ),
                             ],
                           );
                         }
@@ -735,10 +988,13 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                     child: FutureBuilder<Map<String, dynamic>>(
                       future: _departedAwaitingReturnFuture,
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: CircularProgressIndicator());
                         } else if (snapshot.hasError) {
-                          return Center(child: Text('Error: ${snapshot.error}'));
+                          return Center(
+                              child: Text('Error: ${snapshot.error}'));
                         } else if (snapshot.hasData) {
                           final leaves = snapshot.data!['leaves'] ?? [];
                           if (leaves.isEmpty) {
@@ -751,26 +1007,29 @@ class _GuardDashboardScreenState extends State<GuardDashboardScreen> with Single
                             children: [
                               const Text(
                                 'Departed Students Awaiting Return',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
                               ...leaves.map((leave) => Card(
-                                child: ListTile(
-                                  title: Text(leave['student']?['name'] ?? 'Unknown'),
-                                  subtitle: Text(
-                                    'Left at: ${_formatDateTime(leave['guardStatus']?['decidedAt'])}'
-                                  ),
-                                  trailing: ElevatedButton(
-                                    onPressed: () => _handleMarkReturn(leave['_id'].toString()),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                      foregroundColor: Colors.white,
+                                    child: ListTile(
+                                      title: Text(leave['student']?['name'] ??
+                                          'Unknown'),
+                                      subtitle: Text(
+                                          'Left at: ${_formatDateTime(leave['guardStatus']?['decidedAt'])}'),
+                                      trailing: ElevatedButton(
+                                        onPressed: () => _handleMarkReturn(
+                                            leave['_id'].toString()),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.blue,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: const Text('Mark Returned'),
+                                      ),
+                                      onTap: () =>
+                                          _showApplicationDetails(leave['_id']),
                                     ),
-                                    child: const Text('Mark Returned'),
-                                  ),
-                                  onTap: () => _showApplicationDetails(leave['_id']),
-                                ),
-                              )),
+                                  )),
                             ],
                           );
                         }

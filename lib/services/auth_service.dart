@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:developer' as dev;
 
 class AuthService {
-  // Change '192.168.x.x' to your actual machine's IP address
   static const String baseUrl = 'https://college-leave-backend.onrender.com/api'; // <-- update this line
 
   Future<Map<String, dynamic>> verifyGoogleUser({required String email, required String role}) async {
     final url = Uri.parse('$baseUrl/auth/verify-google-user');
     final requestBody = {'email': email, 'role': role};
-    print('AuthService: Sending request body: $requestBody'); // Debug print
+    dev.log('AuthService: Sending request body: $requestBody'); // Debug dev.log
 
     final response = await http.post(
       url,
@@ -16,8 +16,8 @@ class AuthService {
       body: jsonEncode(requestBody),
     );
 
-    print('AuthService: Response status: ${response.statusCode}'); // Debug print
-    print('AuthService: Response body: ${response.body}'); // Debug print
+    dev.log('AuthService: Response status: ${response.statusCode}'); // Debug dev.log
+    dev.log('AuthService: Response body: ${response.body}'); // Debug dev.log
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -55,13 +55,13 @@ class AuthService {
       if (deviceType != null) 'deviceType': deviceType,
       if (deviceId != null) 'deviceId': deviceId,
     };
-    print('Registering FCM token: $requestBody');
+    dev.log('Registering FCM token: $requestBody');
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(requestBody),
     );
-    print('FCM register response: ${response.statusCode} ${response.body}');
+    dev.log('FCM register response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data['success'] == true;
@@ -78,13 +78,13 @@ class AuthService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
-      print('Delete FCM token response: ${response.statusCode} ${response.body}');
+      dev.log('Delete FCM token response: ${response.statusCode} ${response.body}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['success'] == true;
       }
     } catch (e) {
-      print('Error deleting FCM token: $e');
+      dev.log('Error deleting FCM token: $e');
     }
     return false;
   }

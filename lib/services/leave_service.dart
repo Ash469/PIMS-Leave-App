@@ -1,9 +1,8 @@
-// services/leave_service.dart
-
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/data_models.dart';
+import 'dart:developer' as dev;
 
 const String leaveApiUrl = 'https://college-leave-backend.onrender.com/api/leave';
 
@@ -17,8 +16,8 @@ class LeaveService {
       },
     );
     
-    print('[LeaveService] Response status: ${response.statusCode}');
-    print('[LeaveService] Response body: ${response.body}');
+    dev.log('[LeaveService] Response status: ${response.statusCode}');
+    dev.log('[LeaveService] Response body: ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       // Map documentUrl to attachmentPath if needed
@@ -44,22 +43,22 @@ class LeaveService {
     required String reason,
     File? document,
   }) async {
-    print('[LeaveService] POST $leaveApiUrl');
+    dev.log('[LeaveService] POST $leaveApiUrl');
     var request = http.MultipartRequest('POST', Uri.parse(leaveApiUrl));
     request.fields['startDate'] = startDate;
     request.fields['endDate'] = endDate;
     request.fields['reason'] = reason;
     request.headers['Authorization'] = 'Bearer $token';
     // Do NOT set Content-Type for multipart/form-data, http package handles it
-    print('[LeaveService] Fields: ${request.fields}');
+    dev.log('[LeaveService] Fields: ${request.fields}');
     if (document != null) {
-      print('[LeaveService] Attaching document: ${document.path}');
+      dev.log('[LeaveService] Attaching document: ${document.path}');
       request.files.add(await http.MultipartFile.fromPath('document', document.path));
     }
     final response = await request.send();
-    print('[LeaveService] Response status: ${response.statusCode}');
+    dev.log('[LeaveService] Response status: ${response.statusCode}');
     final respStr = await response.stream.bytesToString();
-    print('[LeaveService] Response body: $respStr');
+    dev.log('[LeaveService] Response body: $respStr');
     if (response.statusCode == 201) {
       // Option 1: Just return null, don't parse
       return null;
@@ -71,7 +70,7 @@ class LeaveService {
           return LeaveRequest.fromJson(data['leave']);
         }
       } catch (e) {
-        print('Warning: Could not parse leave response: $e');
+        dev.log('Warning: Could not parse leave response: $e');
       }
       return null;
       */
@@ -103,8 +102,8 @@ class LeaveService {
     required String leaveId,
   }) async {
     final url = '$leaveApiUrl/$leaveId';
-    print('[LeaveService] GET $url');
-    print('[LeaveService] Headers: {Authorization: Bearer $token, Content-Type: application/json}');
+    dev.log('[LeaveService] GET $url');
+    dev.log('[LeaveService] Headers: {Authorization: Bearer $token, Content-Type: application/json}');
     final response = await http.get(
       Uri.parse(url),
       headers: {
@@ -112,8 +111,8 @@ class LeaveService {
         'Content-Type': 'application/json',
       },
     );
-    print('[LeaveService] Response status: ${response.statusCode}');
-    print('[LeaveService] Response body: ${response.body}');
+    dev.log('[LeaveService] Response status: ${response.statusCode}');
+    dev.log('[LeaveService] Response body: ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return data;

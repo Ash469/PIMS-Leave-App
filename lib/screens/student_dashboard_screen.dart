@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import '../models/data_models.dart'; 
+import '../models/data_models.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-import '../services/leave_service.dart'; 
+import '../services/leave_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'leave_details_screen.dart'; 
-import '../services/auth_service.dart'; 
+import 'leave_details_screen.dart';
+import '../services/auth_service.dart';
 import 'package:flutter/services.dart';
-import 'notifications_screen.dart'; 
+import 'notifications_screen.dart';
+import 'dart:developer' as dev;
 
 class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({super.key});
@@ -22,9 +22,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   String? _userEmail;
   String _studentName = ' ';
   String? _token;
-  String? _gender;
-  int _selectedTab = 0; 
-  String _filterStatus = 'All'; 
+  int _selectedTab = 0;
+  String _filterStatus = 'All';
   DateTime? _lastBackPressed;
 
   @override
@@ -36,10 +35,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _userEmail = prefs.getString('email') ;
+      _userEmail = prefs.getString('email');
       _studentName = prefs.getString('name') ?? ' ';
       _token = prefs.getString('token');
-      _gender = prefs.getString('gender');
     });
     await _loadLeaveRequests();
   }
@@ -59,7 +57,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       });
     } catch (e) {
       final errorMsg = e.toString();
-      if (errorMsg.contains('401') || errorMsg.contains('Invalid or expired token')) {
+      if (errorMsg.contains('401') ||
+          errorMsg.contains('Invalid or expired token')) {
         // Clear login state and redirect to login/role selection
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('isLoggedIn');
@@ -71,13 +70,15 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         await prefs.remove('gender');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Session expired, please login again.')),
+            const SnackBar(
+                content: Text('Session expired, please login again.')),
           );
-          Navigator.of(context).pushNamedAndRemoveUntil('/role-selection', (route) => false);
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/role-selection', (route) => false);
         }
         return;
       }
-      print('[StudentDashboardScreen] Error fetching leaves: $e');
+      dev.log('[StudentDashboardScreen] Error fetching leaves: $e');
       setState(() {
         _leaveRequests = [];
       });
@@ -86,26 +87,33 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
         final now = DateTime.now();
         if (_lastBackPressed == null ||
             now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
           _lastBackPressed = now;
+
+          if (!context.mounted) return;
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Press back again to exit')),
           );
-          return false;
+          return; // ✅ just return, no bool needed
         }
+
         await SystemNavigator.pop();
-        return false;
       },
       child: Scaffold(
         backgroundColor: Colors.blue[50],
         appBar: AppBar(
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,
-          title: Text(_selectedTab == 0 ? 'Student Dashboard' : 'My Applications'),
+          title:
+              Text(_selectedTab == 0 ? 'Student Dashboard' : 'My Applications'),
           centerTitle: true,
           automaticallyImplyLeading: false,
           actions: [
@@ -115,7 +123,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const NotificationsScreen()),
                   );
                 },
               ),
@@ -172,7 +181,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             ),
           ],
         ),
-        body: _selectedTab == 0 ? _buildDashboardTab() : _buildApplicationsTab(),
+        body:
+            _selectedTab == 0 ? _buildDashboardTab() : _buildApplicationsTab(),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedTab,
           onTap: (idx) {
@@ -198,16 +208,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   // --- Dashboard Tab: Only first 3 applications with timeline ---
   Widget _buildDashboardTab() {
     // Check if there is any leave with wardenStatus approved
-    final LeaveRequest? approvedLeave = _leaveRequests
-        .where((leave) => leave.wardenStatus.status == 'approved')
-        .cast<LeaveRequest?>()
-        .toList()
-        .isNotEmpty
-        ? _leaveRequests
-            .where((leave) => leave.wardenStatus.status == 'approved')
-            .first
-        : null;
-    final isQRActive = approvedLeave != null;
 
     return RefreshIndicator(
       onRefresh: _loadLeaveRequests,
@@ -237,7 +237,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Welcome, ${_studentName ?? ""}',
+                            'Welcome, ${_studentName.isNotEmpty ? _studentName : 'Student'}',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -300,10 +300,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 ),
               )
             else
-              ..._leaveRequests
-                  .take(3)
-                  .map((req) => _buildLeaveRequestCard(req, showTimeline: true))
-                  ,
+              ..._leaveRequests.take(3).map(
+                  (req) => _buildLeaveRequestCard(req, showTimeline: true)),
           ],
         ),
       ),
@@ -348,9 +346,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   value: _filterStatus,
                   items: const [
                     DropdownMenuItem(value: 'All', child: Text('All')),
-                    DropdownMenuItem(value: 'Parent Approved', child: Text('Parent Approved')),
-                    DropdownMenuItem(value: 'Warden Approved', child: Text('Warden Approved')),
-                    DropdownMenuItem(value: 'Guard Approved', child: Text('Guard Approved')),
+                    DropdownMenuItem(
+                        value: 'Parent Approved',
+                        child: Text('Parent Approved')),
+                    DropdownMenuItem(
+                        value: 'Warden Approved',
+                        child: Text('Warden Approved')),
+                    DropdownMenuItem(
+                        value: 'Guard Approved', child: Text('Guard Approved')),
                   ],
                   onChanged: (val) {
                     setState(() {
@@ -372,7 +375,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               Expanded(
                 child: ListView(
                   children: filtered
-                      .map((req) => _buildLeaveRequestCard(req, showTimeline: true))
+                      .map((req) =>
+                          _buildLeaveRequestCard(req, showTimeline: true))
                       .toList(),
                 ),
               ),
@@ -383,15 +387,15 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   }
 
   // --- Modified to optionally show timeline ---
-  Widget _buildLeaveRequestCard(LeaveRequest request, {bool showTimeline = false}) {
+  Widget _buildLeaveRequestCard(LeaveRequest request,
+      {bool showTimeline = false}) {
     Color statusColor;
     String statusText;
 
     // Determine status based on adminStatus, wardenStatus, parentStatus, guardStatus
-    final admin = request.adminStatus.status ?? '';
-    final warden = request.wardenStatus.status ?? '';
-    final parent = request.parentStatus.status ?? '';
-    final guard = request.guardStatus.status ?? '';
+    final admin = request.adminStatus.status;
+    final warden = request.wardenStatus.status;
+    final parent = request.parentStatus.status;
 
     if (admin == 'stopped') {
       statusColor = Colors.red;
@@ -415,7 +419,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
     // Determine QR button state and label
     final isQRClickable = warden == 'approved' && admin != 'stopped';
-    final isReturnVerification = isQRClickable && guard == 'approved';
     final qrButtonLabel = 'My QR Code';
 
     // --- Hide QR code if leave is already returned ---
@@ -423,17 +426,18 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
     return GestureDetector(
       onTap: () async {
-        if (_token == null || (request.id ?? '').isEmpty) return;
+        if (_token == null || (request.id).isEmpty) return;
         try {
           final leaveService = LeaveService();
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (context) => const Center(child: CircularProgressIndicator()),
+            builder: (context) =>
+                const Center(child: CircularProgressIndicator()),
           );
           final rawJson = await leaveService.fetchLeaveById(
             token: _token!,
-            leaveId: request.id ?? '',
+            leaveId: request.id,
           );
           Navigator.pop(context); // Remove loading dialog
           // Pass only the 'leave' field from the fetched JSON to the details screen
@@ -441,7 +445,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             context,
             MaterialPageRoute(
               builder: (context) => LeaveDetailsScreen(
-                rawJson: (rawJson is Map<String, dynamic> && rawJson.containsKey('leave'))
+                rawJson: (rawJson.containsKey('leave'))
                     ? rawJson['leave'] as Map<String, dynamic>
                     : null,
               ),
@@ -476,7 +480,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      request.reason ?? '',
+                      request.reason,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -522,7 +526,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
-                    onPressed: isQRClickable ? () => _showQRCode(request) : null,
+                    onPressed:
+                        isQRClickable ? () => _showQRCode(request) : null,
                     icon: Icon(
                       Icons.qr_code,
                       color: isQRClickable ? Colors.green : Colors.grey,
@@ -568,7 +573,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     ];
 
     // Optionally add Admin if applicable
-    if (leave.adminStatus.status == 'rejected' || leave.adminStatus.status == 'stopped') {
+    if (leave.adminStatus.status == 'rejected' ||
+        leave.adminStatus.status == 'stopped') {
       stages.add({
         'label': 'Admin',
         'status': leave.adminStatus.status,
@@ -605,7 +611,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       return Column(
         children: [
           CircleAvatar(
-            radius: MediaQuery.of(context).size.width * 0.03, // Responsive radius
+            radius:
+                MediaQuery.of(context).size.width * 0.03, // Responsive radius
             backgroundColor: color,
             child: Icon(
               status == 'approved' || status == 'returned'
@@ -614,23 +621,27 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                       ? Icons.close
                       : Icons.circle,
               color: Colors.white,
-              size: MediaQuery.of(context).size.width * 0.04, // Responsive icon size
+              size: MediaQuery.of(context).size.width *
+                  0.04, // Responsive icon size
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: MediaQuery.of(context).size.width * 0.03, // Responsive font size
+              fontSize: MediaQuery.of(context).size.width *
+                  0.03, // Responsive font size
               color: color,
-              fontWeight: idx == currentStage ? FontWeight.bold : FontWeight.normal,
+              fontWeight:
+                  idx == currentStage ? FontWeight.bold : FontWeight.normal,
             ),
           ),
           if (status == 'returned' && date != null)
             Text(
               _formatDateTime(date),
               style: TextStyle(
-                fontSize: MediaQuery.of(context).size.width * 0.025, // Responsive font size
+                fontSize: MediaQuery.of(context).size.width *
+                    0.025, // Responsive font size
                 color: Colors.green,
               ),
             ),
@@ -652,7 +663,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         // Connector line
         final leftIdx = (i - 1) ~/ 2;
         final leftStatus = stages[leftIdx]['status'] as String?;
-        final color = (leftStatus == 'approved' || leftStatus == 'returned' || leftStatus == 'rejected' || leftStatus == 'stopped')
+        final color = (leftStatus == 'approved' ||
+                leftStatus == 'returned' ||
+                leftStatus == 'rejected' ||
+                leftStatus == 'stopped')
             ? getColor(leftIdx, leftStatus)
             : Colors.grey[400];
         return Expanded(
@@ -676,7 +690,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
-
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
@@ -720,7 +733,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Leave Reason: ${approvedLeave.reason ?? 'N/A'}',
+              'Leave Reason: ${approvedLeave.reason}',
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
@@ -737,7 +750,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
   String _generateQRData(LeaveRequest approvedLeave) {
     // Encode QR data in "name|reason|leaveId" format
-    return '${_studentName}|${approvedLeave.reason ?? 'N/A'}|${approvedLeave.id}';
+    return '${_studentName}|${approvedLeave.reason}|${approvedLeave.id}';
   }
 
   Widget _buildActionButton(

@@ -33,6 +33,12 @@ android {
         versionName = flutter.versionName
     }
 
+    def keystorePropertiesFile = rootProject.file("key.properties")
+    def keystoreProperties = new Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    }
+
     signingConfigs {
         debug {
             // Use the debug keystore for signing the debug build.

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:developer' as dev;
 
 class GuardService {
   static const String baseUrl = 'https://college-leave-backend.onrender.com/api/guard';
@@ -7,7 +8,7 @@ class GuardService {
   // 1. List Departed Students Awaiting Return
   static Future<Map<String, dynamic>> getDepartedAwaitingReturn(String jwtToken) async {
     final url = Uri.parse('$baseUrl/applications/departed-awaiting-return');
-    print('GET $url');
+    dev.log('GET $url');
     final response = await http.get(
       url,
       headers: {
@@ -15,10 +16,9 @@ class GuardService {
         'Content-Type': 'application/json',
       },
     );
-    print('Response: ${response.statusCode} ${response.body}');
+    dev.log('Response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 200) {
       return json.decode(response.body);
-      print('GuardService: Fetched departed students: ${response.body}');
     } else {
       throw Exception('Failed to fetch departed students: ${response.statusCode}');
     }
@@ -28,7 +28,7 @@ class GuardService {
   // Now returns the raw response as Map<String, dynamic> (with 'leaves' key).
   static Future<Map<String, dynamic>> getPendingDepartureApplications(String jwtToken) async {
     final url = Uri.parse('$baseUrl/applications');
-    print('GET $url');
+    dev.log('GET $url');
     final response = await http.get(
       url,
       headers: {
@@ -36,7 +36,7 @@ class GuardService {
         'Content-Type': 'application/json',
       },
     );
-    print('Response: ${response.statusCode} ${response.body}');
+    dev.log('Response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
@@ -47,7 +47,7 @@ class GuardService {
   // 3. Get Full Details of a Specific Leave Application
   static Future<Map<String, dynamic>> getLeaveApplicationById(String jwtToken, String id) async {
     final url = Uri.parse('$baseUrl/applications/$id');
-    print('GET $url');
+    dev.log('GET $url');
     final response = await http.get(
       url,
       headers: {
@@ -55,7 +55,7 @@ class GuardService {
         'Content-Type': 'application/json',
       },
     );
-    print('Response: ${response.statusCode} ${response.body}');
+    dev.log('Response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
@@ -78,8 +78,8 @@ class GuardService {
       'decision': decision,
       if (decision == 'rejected') 'rejectionReason': rejectionReason,
     };
-    print('PATCH $url');
-    print('Request Body: $body');
+    dev.log('PATCH $url');
+    dev.log('Request Body: $body');
     final response = await http.patch(
       url,
       headers: {
@@ -88,7 +88,7 @@ class GuardService {
       },
       body: json.encode(body),
     );
-    // print('Response: ${response.statusCode} ${response.body}');
+    // dev.log('Response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
@@ -102,7 +102,7 @@ class GuardService {
     required String id,
   }) async {
     final url = Uri.parse('$baseUrl/applications/$id/return');
-    print('PATCH $url');
+    dev.log('PATCH $url');
     final response = await http.patch(
       url,
       headers: {
@@ -110,7 +110,7 @@ class GuardService {
         'Content-Type': 'application/json',
       },
     );
-    print('Response: ${response.statusCode} ${response.body}');
+    dev.log('Response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {

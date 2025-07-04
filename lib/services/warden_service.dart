@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer' as dev;
 
 class WardenService {
   final String baseUrl;
@@ -20,8 +21,8 @@ class WardenService {
   Future<List<Map<String, dynamic>>> getPendingApplications() async {
     final headers = await _getHeaders();
     final url = Uri.parse('$baseUrl/warden/applications');
-    print('[API] GET $url');
-    print('[API] Headers: $headers');
+    dev.log('[API] GET $url');
+    dev.log('[API] Headers: $headers');
     final res = await http.get(url, headers: headers);
 
     if (res.statusCode == 200) {
@@ -37,13 +38,13 @@ class WardenService {
   Future<Map<String, dynamic>> getApplicationDetails(String id) async {
     final headers = await _getHeaders();
     final url = Uri.parse('$baseUrl/warden/applications/$id'); // <-- changed endpoint
-    print('[API] GET $url');
-    print('[API] Headers: $headers');
+    dev.log('[API] GET $url');
+    dev.log('[API] Headers: $headers');
     final res = await http.get(url, headers: headers);
 
     if (res.statusCode == 200) {
       final data = json.decode(res.body);
-      print('[API] Application details: ${data['leave']}');
+      dev.log('[API] Application details: ${data['leave']}');
       return Map<String, dynamic>.from(data['leave']);
     } else {
       throw Exception('Failed to fetch application details: ${res.statusCode}');
@@ -63,9 +64,9 @@ class WardenService {
       if (decision == 'rejected' && rejectionReason != null)
         'rejectionReason': rejectionReason,
     };
-    print('[API] PATCH $url');
-    print('[API] Headers: $headers');
-    print('[API] Body: ${json.encode(body)}');
+    dev.log('[API] PATCH $url');
+    dev.log('[API] Headers: $headers');
+    dev.log('[API] Body: ${json.encode(body)}');
     final res = await http.patch(url, headers: headers, body: json.encode(body));
 
     if (res.statusCode == 200) {

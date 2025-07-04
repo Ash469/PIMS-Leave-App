@@ -3,10 +3,11 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/guard_service.dart';
+import 'dart:developer' as dev;
 
 class QrScannerScreen extends StatefulWidget {
   final Function(String) onQrCodeScanned;
-  final String tab; // Add a parameter to indicate the current tab (departure or return)
+  final String tab; 
 
   const QrScannerScreen({super.key, required this.onQrCodeScanned, required this.tab});
 
@@ -47,7 +48,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     setState(() {
       jwtToken = prefs.getString('token');
     });
-    print('Loaded jwtToken: $jwtToken');
+    dev.log('Loaded jwtToken: $jwtToken');
   }
 
   void _startScanning() {
@@ -93,7 +94,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       final data = qrData.split('|'); // Expecting "name|reason|leaveId"
       if (data.length != 3) throw Exception('Invalid QR code format');
       final leaveId = data[2].trim();
-      print('Extracted Leave ID: $leaveId');
+      dev.log('Extracted Leave ID: $leaveId');
 
       final decision = await showDialog<String>(
         context: context,
@@ -134,11 +135,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           rejectionReason: rejectionReason,
         );
 
-        print('Decide on Departure API Response: $response');
+        dev.log('Decide on Departure API Response: $response');
         _showCenterMessage('Leave $decision successfully');
       }
     } catch (e) {
-      print('Error in _handleQrCodeForDeparture: $e');
+      dev.log('Error in _handleQrCodeForDeparture: $e');
       if (e.toString().contains('409')) {
         _showCenterMessage('Already marked.');
       } else {
@@ -152,11 +153,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       final data = qrData.split('|'); // Expecting "name|reason|leaveId"
       if (data.length != 3) throw Exception('Invalid QR code format');
       final leaveId = data[2].trim();
-      print('Extracted Leave ID: $leaveId');
+      dev.log('Extracted Leave ID: $leaveId');
 
       final snapshot = await GuardService.getDepartedAwaitingReturn(jwtToken!);
       final leaves = snapshot['leaves'] ?? [];
-      print('API Response Body: $snapshot');
+      dev.log('API Response Body: $snapshot');
 
       final matchingLeave = leaves.firstWhere(
         (leave) => leave['_id'] == leaveId,
@@ -168,7 +169,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         return;
       }
 
-      print('Matching Leave Found: $matchingLeave');
+      dev.log('Matching Leave Found: $matchingLeave');
 
       final confirm = await showDialog<bool>(
         context: context,
@@ -196,11 +197,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           id: leaveId,
         );
 
-        print('Mark Return API Response: $response');
+        dev.log('Mark Return API Response: $response');
         _showCenterMessage('Student marked as returned successfully');
       }
     } catch (e) {
-      print('Error in _handleQrCodeForReturn: $e');
+      dev.log('Error in _handleQrCodeForReturn: $e');
       _showCenterMessage('Error: ${e.toString()}');
     }
   }
@@ -300,7 +301,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     onDetect: (result) {
                       final qrData = result.barcodes.first.rawValue;
                       if (qrData != null && !_hasScanned) {
-                        print('Scanned QR Code: $qrData');
+                        dev.log('Scanned QR Code: $qrData');
                         _handleQrCode(qrData);
                       }
                     },

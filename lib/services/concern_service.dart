@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer' as dev;
 
 class ConcernService {
   static const String baseUrl = 'https://college-leave-backend.onrender.com/api/guard';
@@ -23,7 +24,7 @@ class ConcernService {
     required String description,
     File? document,
   }) async {
-    print('[ConcernService] POST $baseUrl/concerns');
+    dev.log('[ConcernService] POST $baseUrl/concerns');
     final url = Uri.parse('$baseUrl/concerns');
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -35,16 +36,16 @@ class ConcernService {
     request.fields['description'] = description;
     request.headers['Authorization'] = 'Bearer $token';
 
-    print('[ConcernService] Fields: ${request.fields}');
+    dev.log('[ConcernService] Fields: ${request.fields}');
     if (document != null) {
-      print('[ConcernService] Attaching document: ${document.path}');
+      dev.log('[ConcernService] Attaching document: ${document.path}');
       request.files.add(await http.MultipartFile.fromPath('document', document.path)); // Ensure field name is 'document'
     }
 
     final response = await request.send();
-    print('[ConcernService] Response status: ${response.statusCode}');
+    dev.log('[ConcernService] Response status: ${response.statusCode}');
     final responseBody = await response.stream.bytesToString();
-    print('[ConcernService] Response body: $responseBody');
+    dev.log('[ConcernService] Response body: $responseBody');
 
     if (response.statusCode == 201) {
       return {
@@ -72,8 +73,8 @@ class ConcernService {
   Future<List<Map<String, dynamic>>> fetchConcerns() async {
     final headers = await _getHeaders();
     final url = Uri.parse('$baseUrl/concerns');
-    print('[API] GET $url');
-    print('[API] Headers: $headers');
+    dev.log('[API] GET $url');
+    dev.log('[API] Headers: $headers');
     final res = await http.get(url, headers: headers);
 
     if (res.statusCode == 200) {
@@ -88,8 +89,8 @@ class ConcernService {
   Future<Map<String, dynamic>> getConcernDetails(String id) async {
     final headers = await _getHeaders();
     final url = Uri.parse('$baseUrl/concerns/$id');
-    print('[API] GET $url');
-    print('[API] Headers: $headers');
+    dev.log('[API] GET $url');
+    dev.log('[API] Headers: $headers');
     final res = await http.get(url, headers: headers);
 
     if (res.statusCode == 200) {
@@ -106,13 +107,13 @@ class ConcernService {
     final headers = await _getHeaders();
     final queryParameters = batch != null ? <String, String>{'batch': batch} : <String, String>{};
     final url = Uri.parse('$baseUrl/allstudents').replace(queryParameters: queryParameters);
-    print('[API] GET $url');
-    print('[API] Headers: $headers');
+    dev.log('[API] GET $url');
+    dev.log('[API] Headers: $headers');
     final res = await http.get(url, headers: headers);
 
     if (res.statusCode == 200) {
       final data = json.decode(res.body);
-      print('[API] Fetched students: ${data['students']}');
+      dev.log('[API] Fetched students: ${data['students']}');
       return List<Map<String, dynamic>>.from(data['students'] as List);
     } else {
       throw Exception('Failed to fetch students: ${res.statusCode}');

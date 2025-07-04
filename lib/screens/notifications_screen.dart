@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert'; // <-- Add this import
 import '../services/notification_service.dart';
 import '../models/data_models.dart';
 
@@ -8,7 +7,7 @@ class NotificationsScreen extends StatefulWidget {
   final String? token;
   final NotificationService? notificationService;
 
-  const NotificationsScreen({Key? key, this.token, this.notificationService}) : super(key: key);
+  const NotificationsScreen({super.key, this.token, this.notificationService});
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -18,7 +17,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   late Future<List<AppNotification>> _notificationsFuture;
   late Future<List<String>> _deletedIdsFuture;
   String? _token;
-  Set<String> _selectedIds = {}; 
+  final Set<String> _selectedIds = {}; 
   late NotificationService _notificationService;
 
   @override
@@ -177,18 +176,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
                         // Leave details if present
                         String leaveReason = '';
-                        String leaveStatus = '';
                         if (n.leave != null) {
                           if (n.leave is Map) {
                             leaveReason = n.leave['reason'] ?? '';
-                            final parentStatus = n.leave['parentStatus']?['status'];
-                            final wardenStatus = n.leave['wardenStatus']?['status'];
-                            final guardStatus = n.leave['guardStatus']?['status'];
-                            leaveStatus = [
-                              if (parentStatus != null) 'Parent: $parentStatus',
-                              if (wardenStatus != null) 'Warden: $wardenStatus',
-                              if (guardStatus != null) 'Guard: $guardStatus',
-                            ].join(' | ');
                           } else if (n.leave is String) {
                             // If leave is just an ID string, show it or skip
                             leaveReason = 'Leave ID: ${n.leave}';

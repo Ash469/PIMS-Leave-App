@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/data_models.dart';
+import 'dart:developer' as dev;
 
 class NotificationService {
   static const String _apiUrl = 'https://college-leave-backend.onrender.com/api/notifications';
 
   // Get all notifications for the logged-in user (requires bearer token)
   Future<List<AppNotification>> getNotifications(String token) async {
-    print('[NotificationService] GET $_apiUrl');
+    dev.log('[NotificationService] GET $_apiUrl');
     final response = await http.get(
       Uri.parse(_apiUrl),
       headers: {
@@ -16,7 +17,7 @@ class NotificationService {
         'Content-Type': 'application/json',
       },
     );
-    print('[NotificationService] Response (${response.statusCode}): ${response.body}');
+    dev.log('[NotificationService] Response (${response.statusCode}): ${response.body}');
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       return data.map((json) => AppNotification.fromJson(json)).toList();
@@ -28,7 +29,7 @@ class NotificationService {
   // Mark a notification as read (requires bearer token)
   Future<AppNotification> markNotificationRead(String notificationId, String token) async {
     final url = '$_apiUrl/$notificationId/read';
-    print('[NotificationService] PATCH $url');
+    dev.log('[NotificationService] PATCH $url');
     final response = await http.patch(
       Uri.parse(url),
       headers: {
@@ -36,7 +37,7 @@ class NotificationService {
         'Content-Type': 'application/json',
       },
     );
-    print('[NotificationService] Response (${response.statusCode}): ${response.body}');
+    dev.log('[NotificationService] Response (${response.statusCode}): ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return AppNotification.fromJson(data);
@@ -48,7 +49,7 @@ class NotificationService {
   // Delete a notification (calls backend)
   Future<void> deleteNotification(String notificationId, String token) async {
     final url = '$_apiUrl/$notificationId';
-    print('[NotificationService] DELETE $url');
+    dev.log('[NotificationService] DELETE $url');
     final response = await http.delete(
       Uri.parse(url),
       headers: {
@@ -56,7 +57,7 @@ class NotificationService {
         'Content-Type': 'application/json',
       },
     );
-    print('[NotificationService] Response (${response.statusCode}): ${response.body}');
+    dev.log('[NotificationService] Response (${response.statusCode}): ${response.body}');
     if (response.statusCode != 200) {
       throw Exception('Failed to delete notification');
     }

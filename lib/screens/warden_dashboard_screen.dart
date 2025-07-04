@@ -1,12 +1,13 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import '../models/data_models.dart';
 import '../services/warden_service.dart';
  import 'package:url_launcher/url_launcher.dart';
-import '../services/auth_service.dart'; // <-- Add this import
+import '../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'leave_details_screen.dart'; // <-- Import LeaveDetailsScreen
-import 'notifications_screen.dart'; // <-- Add this import
+import 'leave_details_screen.dart'; 
 
 class WardenDashboardScreen extends StatefulWidget {
   const WardenDashboardScreen({super.key});
@@ -22,7 +23,6 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
   String? _error;
 
   late WardenService _wardenService;
-  late String _wardenToken;
 
   String _wardenName = '';
   String _wardenEmail = '';
@@ -32,7 +32,6 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
   Future<void> _loadWardenInfo() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _wardenToken = prefs.getString('token') ?? '';
       _wardenName = prefs.getString('name') ?? '';
       _wardenEmail = prefs.getString('email') ?? '';
     });
@@ -80,12 +79,12 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
   Widget build(BuildContext context) {
     final pendingRequests = _leaveRequests
         .where((r) =>
-            r.parentStatus?.status == 'approved' &&
-            (r.wardenStatus?.status == null || r.wardenStatus?.status == 'pending'))
+            r.parentStatus.status == 'approved' &&
+            (r.wardenStatus.status == 'pending'))
         .toList();
 
     final approvedCount = _leaveRequests
-        .where((r) => r.wardenStatus?.status == 'approved')
+        .where((r) => r.wardenStatus.status == 'approved')
         .length;
 
     // Filtering for All tab
@@ -94,18 +93,18 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
       case 'Pending':
         filteredRequests = _leaveRequests
             .where((r) =>
-                r.parentStatus?.status == 'approved' &&
-                (r.wardenStatus?.status == null || r.wardenStatus?.status == 'pending'))
+                r.parentStatus.status == 'approved' &&
+                (r.wardenStatus.status == 'pending'))
             .toList();
         break;
       case 'Approved':
         filteredRequests = _leaveRequests
-            .where((r) => r.wardenStatus?.status == 'approved')
+            .where((r) => r.wardenStatus.status == 'approved')
             .toList();
         break;
       case 'Rejected':
         filteredRequests = _leaveRequests
-            .where((r) => r.wardenStatus?.status == 'rejected')
+            .where((r) => r.wardenStatus.status == 'rejected')
             .toList();
         break;
       default:
@@ -161,6 +160,7 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
                 try {
                   await GoogleSignIn().signOut();
                 } catch (_) {}
+                if (!mounted) return;
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/role-selection',
@@ -430,8 +430,8 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
   }
 
   Widget _buildLeaveRequestCard(LeaveRequest request) {
-    bool showActionButtons = request.parentStatus?.status == 'approved' &&
-        (request.wardenStatus?.status == null || request.wardenStatus?.status == 'pending');
+    bool showActionButtons = request.parentStatus.status == 'approved' &&
+        (request.wardenStatus.status == 'pending');
 
     // Document preview logic
     final hasDocument = request.attachmentPath != null && request.attachmentPath!.isNotEmpty;
@@ -448,8 +448,7 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
             setState(() {
               _isLoading = true;
             });
-            final details = await _wardenService.getApplicationDetails(request.id!);
-            // ignore: use_build_context_synchronously
+            final details = await _wardenService.getApplicationDetails(request.id);
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -511,7 +510,7 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
                       GestureDetector(
                         onTap: () {
                           if (previewUrl != null) {
-                          launch(previewUrl);
+                            launchUrl(Uri.parse(previewUrl));
                           }
                         },
                         child: const Text(
@@ -714,7 +713,7 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
         _isLoading = true;
       });
       await _wardenService.decideApplication(
-        id: request.id!,
+        id: request.id,
         decision: isApproval ? 'approved' : 'rejected',
         rejectionReason: isApproval ? null : comment,
       );
