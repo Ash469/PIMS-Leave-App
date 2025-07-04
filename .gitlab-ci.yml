@@ -1,0 +1,37 @@
+image: cirrusci/flutter:stable
+
+stages:
+  - analyze
+  - test
+  - build
+
+# 🔍 Static code analysis
+analyze:
+  stage: analyze
+  script:
+    - flutter pub get
+    - flutter analyze
+
+# ✅ Run unit tests
+test:
+  stage: test
+  script:
+    - flutter pub get
+    - flutter test
+
+# 🔐 Restore secrets and build signed release APK
+build_release:
+  stage: build
+  before_script:
+    # Recreate keystore file from base64 variable
+    - echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+
+    # Recreate key.properties file from base64 variable
+    - echo "$KEYPROPERTIES_B64" | base64 -d > android/key.properties
+  script:
+    - flutter pub get
+    - flutter build apk --release
+  artifacts:
+    paths:
+      - build/app/outputs/flutter-apk/app-release.apk
+    expire_in: 1 week
