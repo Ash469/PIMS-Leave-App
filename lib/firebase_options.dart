@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyB6_M_KQOFFEoJ-urBBZug3JW8ZlixHPXc',
-    appId: '1:250221986887:android:e6eb06f3e80bbf790b9d62',
+    appId: '1:250221986887:android:c30ed0e0a5a648930b9d62',
     messagingSenderId: '250221986887',
     projectId: 'pimsfinal-f2bf6',
     storageBucket: 'pimsfinal-f2bf6.firebasestorage.app',
@@ -64,6 +64,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '250221986887',
     projectId: 'pimsfinal-f2bf6',
     storageBucket: 'pimsfinal-f2bf6.firebasestorage.app',
+    androidClientId: '250221986887-gmi3gtlg7mg7m9v0991f7f5u14hjatbv.apps.googleusercontent.com',
+    iosClientId: '250221986887-vf7qrla7qkisgpng7r4ithdjt368f15j.apps.googleusercontent.com',
     iosBundleId: 'com.example.pimsApp',
   );
 
@@ -73,6 +75,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '250221986887',
     projectId: 'pimsfinal-f2bf6',
     storageBucket: 'pimsfinal-f2bf6.firebasestorage.app',
+    androidClientId: '250221986887-gmi3gtlg7mg7m9v0991f7f5u14hjatbv.apps.googleusercontent.com',
+    iosClientId: '250221986887-vf7qrla7qkisgpng7r4ithdjt368f15j.apps.googleusercontent.com',
     iosBundleId: 'com.example.pimsApp',
   );
 

@@ -1,4 +1,4 @@
-package com.example.pims_app
+package com.pims.pims_app
 
 import io.flutter.embedding.android.FlutterActivity
 
