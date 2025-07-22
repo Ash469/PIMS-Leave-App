@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Build (Manual .ipa Export)
+    name: iOS Build (.ipa via Flutter)
     environment:
       flutter: stable
       xcode: latest
@@ -11,45 +11,12 @@ workflows:
           if [ ! -d "ios" ]; then
             flutter create .
           fi
-      - name: Create ExportOptions.plist
-        script: |
-          mkdir -p ios
-          cat > ios/ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>development</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-            <key>compileBitcode</key>
-            <false/>
-            <key>destination</key>
-            <string>export</string>
-          </dict>
-          </plist>
-          EOF
-      - name: Install Flutter dependencies
-        script: flutter pub get
       - name: Set iOS Deployment Target to 15.5
         script: |
           sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
-      - name: Build Xcode archive (Unsigned)
-        script: |
-          flutter build ios --release --no-codesign
-          xcodebuild -workspace ios/Runner.xcworkspace \
-                     -scheme Runner \
-                     -configuration Release \
-                     -archivePath build/ios/archive/Runner.xcarchive \
-                     archive CODE_SIGNING_ALLOWED=NO
-      - name: Export .ipa manually
-        script: |
-          xcodebuild -exportArchive \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            -exportOptionsPlist ios/ExportOptions.plist \
-            -exportPath build/ios/ipa
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Build .ipa (No Codesign)
+        script: flutter build ipa --release --no-codesign
     artifacts:
       - build/ios/ipa/*.ipa
