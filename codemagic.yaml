@@ -13,10 +13,10 @@ workflows:
           fi
       - name: Install Flutter dependencies
         script: flutter pub get
-      - name: Set iOS Deployment Target to 13.0
+      - name: Set iOS Deployment Target to 15.5
         script: |
-         echo "Setting iOS deployment target to 13.0"
-         sed -i.bak "s/^# platform :ios.*/platform :ios, '13.0'/" ios/Podfile
+         echo "Setting iOS deployment target to 15.5"
+         sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
          cat ios/Podfile
       - name: Build iOS (Unsigned)
         script: flutter build ios --release --no-codesign
