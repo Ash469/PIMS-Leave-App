@@ -1,14 +1,16 @@
 # ios/Podfile
 
+# This is required to use flutter_install_all_ios_pods
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), __dir__)
+
 platform :ios, '13.0'
 
 use_frameworks!
 use_modular_headers!
 
 target 'Runner' do
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
 end
-
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
