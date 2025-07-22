@@ -6,17 +6,19 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Ensure iOS folder exists
+      - name: Generate ios folder if missing
         script: |
           if [ ! -d "ios" ]; then
-            echo "Generating ios folder using Flutter..."
             flutter create .
           fi
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         script: flutter pub get
-      - name: Set iOS Deployment Target to 13.0
+      - name: Force iOS Deployment Target to 13.0
         script: |
-          sed -i '' 's/platform :ios, .*/platform :ios, '\''13.0'\''/' ios/Podfile || echo "platform :ios, '13.0'" >> ios/Podfile
+          echo "Setting iOS platform to 13.0 manually..."
+          awk '{sub(/platform :ios, .*/, "platform :ios, '\''13.0'\''")} 1' ios/Podfile > ios/Podfile.new
+          mv ios/Podfile.new ios/Podfile
+          cat ios/Podfile
       - name: Build iOS (Unsigned)
         script: flutter build ios --release --no-codesign
     artifacts:
