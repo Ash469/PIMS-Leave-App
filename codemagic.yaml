@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Build (No Codesign)
+    name: iOS Build (Manual .ipa Export)
     environment:
       flutter: stable
       xcode: latest
@@ -11,14 +11,27 @@ workflows:
           if [ ! -d "ios" ]; then
             flutter create .
           fi
+
       - name: Install Flutter dependencies
         script: flutter pub get
+
       - name: Set iOS Deployment Target to 15.5
         script: |
           echo "Setting iOS deployment target to 15.5"
           sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
           cat ios/Podfile
-      - name: Build iOS .ipa (No Codesign)
-        script: flutter build ipa --release --no-codesign
+
+      - name: Build iOS archive (No Codesign)
+        script: |
+          flutter build ios --release --no-codesign \
+            --build-name=1.0.0 --build-number=1
+
+      - name: Export .ipa manually
+        script: |
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath build/ios/ipa
+
     artifacts:
       - build/ios/ipa/*.ipa
