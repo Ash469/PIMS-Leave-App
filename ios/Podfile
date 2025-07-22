@@ -1,7 +1,7 @@
 # ios/Podfile
 
 # This is required to use flutter_install_all_ios_pods
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), __dir__)
+require File.expand_path('../../Flutter/podhelper', __FILE__)
 
 platform :ios, '13.0'
 
