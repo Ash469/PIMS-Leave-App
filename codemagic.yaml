@@ -15,10 +15,10 @@ workflows:
         script: flutter pub get
       - name: Set iOS Deployment Target to 15.5
         script: |
-         echo "Setting iOS deployment target to 15.5"
-         sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
-         cat ios/Podfile
-      - name: Build iOS (Unsigned)
-        script: flutter build ios --release --no-codesign
+          echo "Setting iOS deployment target to 15.5"
+          sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
+          cat ios/Podfile
+      - name: Build iOS .ipa (No Codesign)
+        script: flutter build ipa --release --no-codesign
     artifacts:
-      - build/ios/iphoneos/Runner.app
+      - build/ios/ipa/*.ipa
