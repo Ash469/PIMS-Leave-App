@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Build (Quiet .ipa Export)
+    name: iOS Build (Runner.app only)
     environment:
       flutter: stable
       xcode: latest
@@ -13,28 +13,6 @@ workflows:
             flutter create .
           fi
 
-      - name: Create ExportOptions.plist
-        script: |
-          mkdir -p ios
-          cat > ios/ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>development</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-            <key>compileBitcode</key>
-            <false/>
-            <key>destination</key>
-            <string>export</string>
-          </dict>
-          </plist>
-          EOF  
-
       - name: Set iOS Deployment Target to 15.5
         script: |
           sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
@@ -42,7 +20,7 @@ workflows:
       - name: Install dependencies
         script: flutter pub get
 
-      - name: Build Xcode archive (quiet)
+      - name: Build Runner.app (no codesign)
         script: |
           flutter build ios --release --no-codesign
           xcodebuild -workspace ios/Runner.xcworkspace \
@@ -52,13 +30,5 @@ workflows:
                      archive CODE_SIGNING_ALLOWED=NO \
                      -quiet || echo "Archive build failed"
 
-      - name: Export .ipa manually (quiet)
-        script: |
-          xcodebuild -exportArchive \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            -exportOptionsPlist ios/ExportOptions.plist \
-            -exportPath build/ios/ipa \
-            -quiet || echo "IPA export failed"
-
     artifacts:
-      - build/ios/ipa/*.ipa
+      - build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
