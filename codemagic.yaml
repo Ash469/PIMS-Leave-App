@@ -1,18 +1,20 @@
 workflows:
-  ios-production-build:
-    name: iOS Production Build
+  ios-build:
+    name: iOS Build (No Codesign)
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
-      vars:
-        APP_ID: com.example.pimsApp 
     scripts:
-      - name: Get dependencies
+      - name: Install Flutter dependencies
         script: |
           flutter pub get
+      - name: Set iOS Deployment Target to 13.0
+        script: |
+          echo "Setting iOS deployment target to 13.0"
+          sed -i '' 's/platform :ios, .*/platform :ios, '\''13.0'\''/' ios/Podfile || echo "platform :ios, '13.0'" >> ios/Podfile
       - name: Build iOS (Unsigned)
         script: |
           flutter build ios --release --no-codesign
     artifacts:
-      - build/ios/ipa/*.ipa
+      - build/ios/iphoneos/Runner.app
