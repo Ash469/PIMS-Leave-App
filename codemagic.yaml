@@ -11,8 +11,8 @@ workflows:
       - name: Get dependencies
         script: |
           flutter pub get
-      - name: Build iOS (Release)
+      - name: Build iOS (Unsigned)
         script: |
-          script: flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign
     artifacts:
       - build/ios/ipa/*.ipa
