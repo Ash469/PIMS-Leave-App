@@ -1,5 +1,6 @@
 plugins {
     id "com.android.application"
+    
     // START: FlutterFire Configuration
     id 'com.google.gms.google-services'
     // END: FlutterFire Configuration
@@ -8,6 +9,9 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+}
 android {
     namespace = "com.pims.pims_app"
     compileSdk = 35
@@ -16,6 +20,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
     }
 
     kotlinOptions {
@@ -28,9 +33,9 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        targetSdk = 35
+        versionCode = 8
+        versionName = "1.0.3"
     }
 
     def keystorePropertiesFile = rootProject.file("key.properties")
@@ -40,13 +45,6 @@ android {
     }
 
     signingConfigs {
-        debug {
-            // Use the debug keystore for signing the debug build.
-            storeFile = file("test.jks")
-            storePassword = "8002189162a"
-            keyAlias = "test"
-            keyPassword = "8002189162a"
-        }
         create("release") {
             keyAlias = keystoreProperties["keyAlias"]
             keyPassword = keystoreProperties["keyPassword"]

@@ -13,6 +13,7 @@ analyzer:
     non_constant_identifier_names: ignore
     unnecessary_to_list_in_spreads: ignore
     unnecessary_brace_in_string_interps: ignore
+    deprecated_member_use: ignore
 include: package:flutter_lints/flutter.yaml
 
 linter:
