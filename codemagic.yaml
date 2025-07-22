@@ -13,6 +13,6 @@ workflows:
           flutter pub get
       - name: Build iOS (Release)
         script: |
-          flutter build ios --release --flavor ios-production -t lib/main_prod.dart
+          flutter build ios --release
     artifacts:
       - build/ios/ipa/*.ipa
