@@ -1,0 +1,23 @@
+workflows:
+  ios-production-build:
+    name: iOS Production Build
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        APP_ID: com.yourcompany.yourapp  # Update with your real bundle ID
+    scripts:
+      - name: Install dependencies
+        script: |
+          flutter pub get
+      - name: Build iOS (Release)
+        script: |
+          flutter build ios --release --flavor ios-production -t lib/main_prod.dart
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        apple_id: $APP_STORE_ID           # Add in environment variables on Codemagic
+        app_specific_password: $APP_SPECIFIC_PASSWORD # Add in Codemagic too
+        bundle_id: $APP_ID
