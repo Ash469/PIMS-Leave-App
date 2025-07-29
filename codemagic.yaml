@@ -1,42 +1,77 @@
 workflows:
-  ios-release:
-    name: iOS Release with GUI Signing
+  ios-device-build:
+    name: iOS Build with Signing + ExportOptions
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
 
-    scripts:
-      - name: Install dependencies
-        script: flutter pub get
+    signing:
+      ios:
+        provisioning_profiles:
+          - profile  # Must match the uploaded profile name
 
-      - name: Set iOS deployment target
+    scripts:
+      - name: Generate iOS folder if missing
+        script: |
+          if [ ! -d "ios" ]; then
+            flutter create .
+          fi
+
+      - name: Set iOS Deployment Target to 15.5
         script: |
           sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
 
-      - name: Install CocoaPods
+      - name: Install dependencies
         script: |
+          flutter pub get
           cd ios
           pod install
           cd ..
 
-      - name: Build iOS release
-        script: flutter build ios --release
-
-      - name: Archive for distribution
+      - name: Build iOS archive
         script: |
+          flutter build ios --release
           xcodebuild -workspace ios/Runner.xcworkspace \
                      -scheme Runner \
                      -configuration Release \
                      -archivePath build/ios/archive/Runner.xcarchive \
-                     archive
+                     archive \
+                     CODE_SIGN_STYLE=Manual \
+                     DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+                     PROVISIONING_PROFILE_SPECIFIER=profile
 
-      - name: Export .ipa
+      - name: Export IPA using ExportOptions.plist
         script: |
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+           "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>development</string> <!-- or ad-hoc / app-store -->
+            <key>teamID</key>
+            <string>YOUR_TEAM_ID</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.pims.pimsApp</key>
+              <string>profile</string>
+            </dict>
+            <key>compileBitcode</key>
+            <false/>
+            <key>signingCertificate</key>
+            <string>Apple Development</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+          </dict>
+          </plist>
+          EOF
+
           xcodebuild -exportArchive \
-                     -archivePath build/ios/archive/Runner.xcarchive \
-                     -exportPath build/ios/ipa \
-                     -exportOptionsPlist ios/ExportOptions.plist
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist ExportOptions.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
