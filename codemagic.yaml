@@ -18,17 +18,32 @@ workflows:
           sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
 
       - name: Install dependencies
-        script: flutter pub get
+        script: |
+          flutter pub get
+          cd ios
+          pod install
+          cd ..
 
-      - name: Build Runner.app (no codesign)
+      - name: Build iOS (no codesign)
         script: |
           flutter build ios --release --no-codesign
+
+      - name: Patch xcconfig for CocoaPods (Base Config fix)
+        script: |
+          cd ios
+          sed -i '' 's|//.*base.*|base_configuration = "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig";|' Runner.xcodeproj/project.pbxproj
+          cd ..
+
+      - name: Archive iOS app with xcodebuild
+        script: |
           xcodebuild -workspace ios/Runner.xcworkspace \
                      -scheme Runner \
                      -configuration Release \
                      -archivePath build/ios/archive/Runner.xcarchive \
-                     archive CODE_SIGNING_ALLOWED=NO \
-                     -quiet || echo "Archive build failed"
+                     archive \
+                     CODE_SIGNING_ALLOWED=NO \
+                     -allowProvisioningUpdates \
+                     -quiet
 
     artifacts:
       - build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app

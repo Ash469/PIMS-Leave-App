@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <application
         android:enableOnBackInvokedCallback="true"
-        android:label="PIMS"
+        android:label="EASE EXIT"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
