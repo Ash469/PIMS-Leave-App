@@ -1,49 +1,42 @@
 workflows:
-  ios-build:
-    name: iOS Build (Runner.app only)
+  ios-release:
+    name: iOS Release with GUI Signing
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
 
     scripts:
-      - name: Generate ios folder if missing
-        script: |
-          if [ ! -d "ios" ]; then
-            flutter create .
-          fi
+      - name: Install dependencies
+        script: flutter pub get
 
-      - name: Set iOS Deployment Target to 15.5
+      - name: Set iOS deployment target
         script: |
           sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
 
-      - name: Install dependencies
+      - name: Install CocoaPods
         script: |
-          flutter pub get
           cd ios
           pod install
           cd ..
 
-      - name: Build iOS (no codesign)
-        script: |
-          flutter build ios --release --no-codesign
+      - name: Build iOS release
+        script: flutter build ios --release
 
-      - name: Patch xcconfig for CocoaPods (Base Config fix)
-        script: |
-          cd ios
-          sed -i '' 's|//.*base.*|base_configuration = "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig";|' Runner.xcodeproj/project.pbxproj
-          cd ..
-
-      - name: Archive iOS app with xcodebuild
+      - name: Archive for distribution
         script: |
           xcodebuild -workspace ios/Runner.xcworkspace \
                      -scheme Runner \
                      -configuration Release \
                      -archivePath build/ios/archive/Runner.xcarchive \
-                     archive \
-                     CODE_SIGNING_ALLOWED=NO \
-                     -allowProvisioningUpdates \
-                     -quiet
+                     archive
+
+      - name: Export .ipa
+        script: |
+          xcodebuild -exportArchive \
+                     -archivePath build/ios/archive/Runner.xcarchive \
+                     -exportPath build/ios/ipa \
+                     -exportOptionsPlist ios/ExportOptions.plist
 
     artifacts:
-      - build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+      - build/ios/ipa/*.ipa
