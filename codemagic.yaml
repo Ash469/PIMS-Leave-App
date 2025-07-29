@@ -33,7 +33,7 @@ workflows:
                      -archivePath build/ios/archive/Runner.xcarchive \
                      archive \
                      CODE_SIGN_STYLE=Manual \
-                     DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+                     DEVELOPMENT_TEAM=ABZGC66QRD \
                      PROVISIONING_PROFILE_SPECIFIER=profile
 
       - name: Export IPA using ExportOptions.plist
@@ -47,7 +47,7 @@ workflows:
               <key>method</key>
               <string>development</string>
               <key>teamID</key>
-              <string>YOUR_TEAM_ID</string>
+              <string>ABZGC66QRD</string>
               <key>provisioningProfiles</key>
               <dict>
                 <key>com.pims.pimsApp</key>
