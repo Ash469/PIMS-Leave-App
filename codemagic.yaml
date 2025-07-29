@@ -6,11 +6,6 @@ workflows:
       xcode: latest
       cocoapods: default
 
-    signing:
-      ios:
-        provisioning_profiles:
-          - profile  # Must match the uploaded profile name
-
     scripts:
       - name: Generate iOS folder if missing
         script: |
@@ -46,25 +41,25 @@ workflows:
           cat > ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-           "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>development</string> <!-- or ad-hoc / app-store -->
-            <key>teamID</key>
-            <string>YOUR_TEAM_ID</string>
-            <key>provisioningProfiles</key>
             <dict>
-              <key>com.pims.pimsApp</key>
-              <string>profile</string>
+              <key>method</key>
+              <string>development</string>
+              <key>teamID</key>
+              <string>YOUR_TEAM_ID</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                <key>com.pims.pimsApp</key>
+                <string>profile</string>
+              </dict>
+              <key>compileBitcode</key>
+              <false/>
+              <key>signingCertificate</key>
+              <string>Apple Development</string>
+              <key>signingStyle</key>
+              <string>manual</string>
             </dict>
-            <key>compileBitcode</key>
-            <false/>
-            <key>signingCertificate</key>
-            <string>Apple Development</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-          </dict>
           </plist>
           EOF
 
