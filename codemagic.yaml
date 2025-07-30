@@ -5,6 +5,8 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      groups:
+        - signing
       vars:
         APP_ID: "com.pims.pimsApp"
         TEAM_ID: "ABZGC66QRD"
