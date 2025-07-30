@@ -32,7 +32,7 @@ workflows:
 
       - name: Decode and install signing files
         script: |
-          echo $CERTIFICATE_P12 | base64 --decode > certificate.p12
+          echo $CERTIFICATE_P12 | base64 --decode > key.p12
           echo $PROVISIONING_PROFILE | base64 --decode > profile.mobileprovision
 
           security create-keychain -p "" build.keychain
