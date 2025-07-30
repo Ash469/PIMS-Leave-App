@@ -1,10 +1,16 @@
 workflows:
-  ios-simulator-build:
-    name: iOS Simulator Build (No Signing)
+  ios-release-build:
+    name: iOS Release Build with Signing
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
+      vars:
+        APP_ID: "com.pims.pimsApp"
+        TEAM_ID: "ABZGC66QRD"
+        CERT_PASSWORD: $password  # from environment variable
+        CERTIFICATE_P12: $key     # base64 string of .p12
+        PROVISIONING_PROFILE: $profile # base64 string of .mobileprovision
 
     scripts:
       - name: Generate iOS folder if missing
@@ -17,16 +23,73 @@ workflows:
         script: |
           sed -i.bak "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile || echo "platform :ios, '15.5'" >> ios/Podfile
 
-      - name: Install Flutter and CocoaPods dependencies
+      - name: Install dependencies
         script: |
           flutter pub get
           cd ios
           pod install
           cd ..
 
-      - name: Build for iOS simulator
+      - name: Decode and install signing files
         script: |
-          flutter build ios --simulator --debug
+          echo $CERTIFICATE_P12 | base64 --decode > certificate.p12
+          echo $PROVISIONING_PROFILE | base64 --decode > profile.mobileprovision
+
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Build iOS .xcarchive
+        script: |
+          flutter build ios --release --no-codesign
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            archive \
+            DEVELOPMENT_TEAM=$TEAM_ID \
+            PROVISIONING_PROFILE_SPECIFIER=profile \
+            CODE_SIGN_STYLE=Manual \
+            PRODUCT_BUNDLE_IDENTIFIER=$APP_ID
+
+      - name: Create ExportOptions.plist
+        script: |
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+           "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+            <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>teamID</key>
+              <string>$TEAM_ID</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                <key>$APP_ID</key>
+                <string>profile</string>
+              </dict>
+              <key>compileBitcode</key>
+              <false/>
+              <key>destination</key>
+              <string>export</string>
+              <key>signingCertificate</key>
+              <string>Apple Development</string>
+            </dict>
+          </plist>
+          EOF
+
+      - name: Export .ipa
+        script: |
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist ExportOptions.plist
 
     artifacts:
-      - build/ios/iphonesimulator/Runner.app
+      - build/ios/ipa/*.ipa
