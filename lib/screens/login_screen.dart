@@ -131,8 +131,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       dev.log('gender: ${prefs.getString('gender')}');
     
       // Step 3: Get FCM token and register
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      dev.log('Obtained FCM token: $fcmToken');
+      dev.log('Requesting notification permission...');
+final settings = await FirebaseMessaging.instance.requestPermission(
+  alert: true,
+  badge: true,
+  sound: true,
+);
+dev.log('Notification permission status: ${settings.authorizationStatus}');
+
+// Check if permission was granted
+if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+    settings.authorizationStatus == AuthorizationStatus.provisional) {
+  
+  // NOW you can safely get the token
+  final fcmToken = await FirebaseMessaging.instance.getToken();
+  dev.log('Obtained FCM token: $fcmToken');
       if (fcmToken != null) {
         // Store FCM token in SharedPreferences
         await prefs.setString('fcm_token', fcmToken);
@@ -149,11 +162,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         // Set isLoggedIn to true after successful FCM registration
         await prefs.setBool('isLoggedIn', true);
 
-        // Ask notification permission
-        final settings = await FirebaseMessaging.instance.requestPermission();
-        dev.log('Notification permission status: ${settings.authorizationStatus}');
-        if (settings.authorizationStatus == AuthorizationStatus.authorized ||
-            settings.authorizationStatus == AuthorizationStatus.provisional) {
+  
           final savedRole = prefs.getString('role') ?? '';
           if (savedRole == 'student') {
             Navigator.of(context).pushReplacementNamed('/student-dashboard');
