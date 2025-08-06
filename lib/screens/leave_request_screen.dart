@@ -1,10 +1,9 @@
-// screens/leave_request_screen.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/leave_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
 class LeaveRequestScreen extends StatefulWidget {
   const LeaveRequestScreen({super.key});
@@ -22,7 +21,6 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   bool loading = false;
   String? _token;
 
-  // Make selectedStartDate and selectedEndDate state variables
   DateTime? selectedStartDate;
   DateTime? selectedEndDate;
 
@@ -39,230 +37,254 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     });
   }
 
-  Future<void> postLeave({
-    required String startDate,
-    required String endDate,
-    required String reason,
-    File? document,
-  }) async {
+  Future<void> postLeave() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Not authenticated. Please login again.')),
       );
       return;
     }
+
     setState(() => loading = true);
     try {
       final leaveService = LeaveService();
       await leaveService.createLeave(
         token: _token!,
-        startDate: startDate,
-        endDate: endDate,
-        reason: reason,
-        document: document,
+        startDate: selectedStartDate!.toIso8601String(),
+        endDate: selectedEndDate!.toIso8601String(),
+        reason: reasonController.text,
+        document: pickedFile,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Leave request submitted!')),
+        const SnackBar(
+          content: Text('Leave request submitted successfully!'),
+          backgroundColor: Colors.green,
+        ),
       );
-      _formKey.currentState?.reset();
-      startDateController.clear();
-      endDateController.clear();
-      reasonController.clear();
-      setState(() {
-        pickedFile = null;
-      });
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/student-dashboard',
-        (route) => false,
-      );
-    } catch (_) {
+      Navigator.of(context).pop(true); // Return true to indicate success
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to submit leave. Please try again.')),
+        const SnackBar(
+          content: Text('Failed to submit leave. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
-    setState(() => loading = false);
+  }
+
+  Future<bool> _onWillPop() async {
+    if (startDateController.text.isNotEmpty ||
+        endDateController.text.isNotEmpty ||
+        reasonController.text.isNotEmpty ||
+        pickedFile != null) {
+      final shouldPop = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Discard Changes?'),
+          content: const Text('Are you sure you want to leave this page? Any unsaved changes will be lost.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Discard'),
+            ),
+          ],
+        ),
+      );
+      return shouldPop ?? false;
+    }
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Request Leave'),
-        automaticallyImplyLeading: false,
-      ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        if (await _onWillPop()) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: AppBar(
+          title: const Text('New Leave Request'),
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade400, Colors.indigo.shade600],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          foregroundColor: Colors.white,
+        ),
+        body: loading
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
                 key: _formKey,
                 child: ListView(
-                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(16.0),
                   children: [
-                    TextFormField(
+                    _buildDateTimePicker(
+                      context: context,
                       controller: startDateController,
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        labelText: 'Start Date & Time',
-                        suffixIcon: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (selectedStartDate != null)
-                              IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  setState(() {
-                                    selectedStartDate = null;
-                                    startDateController.clear();
-                                  });
-                                },
-                              ),
-                            const Icon(Icons.calendar_today),
-                          ],
-                        ),
-                      ),
-                      validator: (value) => value == null || value.isEmpty ? 'Start date required' : null,
-                      onTap: () async {
-                        final pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: selectedStartDate ?? DateTime.now(),
-                          firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (pickedDate != null) {
-                         
-                          final pickedTime = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.fromDateTime(selectedStartDate ?? DateTime.now()),
-                          );
-                          if (!mounted) return;
-                          DateTime finalDateTime = pickedDate;
-                          if (pickedTime != null) {
-                            finalDateTime = DateTime(
-                              pickedDate.year,
-                              pickedDate.month,
-                              pickedDate.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
+                      label: 'Start Date & Time',
+                      onDateSelected: (date) {
+                        setState(() {
+                          selectedStartDate = date;
+                          startDateController.text = DateFormat('d MMM yyyy, hh:mm a').format(date);
+                          // Clear end date if it's before the new start date
+                          if (selectedEndDate != null && selectedEndDate!.isBefore(date)) {
+                            selectedEndDate = null;
+                            endDateController.clear();
                           }
-                          setState(() {
-                            selectedStartDate = finalDateTime;
-                            startDateController.text =
-                                "${finalDateTime.year}-${finalDateTime.month.toString().padLeft(2, '0')}-${finalDateTime.day.toString().padLeft(2, '0')} "
-                                "${finalDateTime.hour.toString().padLeft(2, '0')}:${finalDateTime.minute.toString().padLeft(2, '0')}";
-                          });
-                        }
+                        });
                       },
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
+                    const SizedBox(height: 16),
+                    _buildDateTimePicker(
+                      context: context,
                       controller: endDateController,
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        labelText: 'End Date & Time',
-                        suffixIcon: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (selectedEndDate != null)
-                              IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  setState(() {
-                                    selectedEndDate = null;
-                                    endDateController.clear();
-                                  });
-                                },
-                              ),
-                            const Icon(Icons.calendar_today),
-                          ],
-                        ),
-                      ),
-                      validator: (value) => value == null || value.isEmpty ? 'End date required' : null,
-                      onTap: () async {
-                        final pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: selectedEndDate ?? selectedStartDate ?? DateTime.now(),
-                          firstDate: selectedStartDate ?? DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (pickedDate != null) {
-                          final pickedTime = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.fromDateTime(selectedEndDate ?? DateTime.now()),
-                          );
-                          DateTime finalDateTime = pickedDate;
-                          if (pickedTime != null) {
-                            finalDateTime = DateTime(
-                              pickedDate.year,
-                              pickedDate.month,
-                              pickedDate.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
-                          }
-                          setState(() {
-                            selectedEndDate = finalDateTime;
-                            endDateController.text =
-                                "${finalDateTime.year}-${finalDateTime.month.toString().padLeft(2, '0')}-${finalDateTime.day.toString().padLeft(2, '0')} "
-                                "${finalDateTime.hour.toString().padLeft(2, '0')}:${finalDateTime.minute.toString().padLeft(2, '0')}";
-                          });
-                        }
+                      label: 'End Date & Time',
+                      firstDate: selectedStartDate,
+                      onDateSelected: (date) {
+                        setState(() {
+                          selectedEndDate = date;
+                          endDateController.text = DateFormat('d MMM yyyy, hh:mm a').format(date);
+                        });
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: reasonController,
-                      decoration: const InputDecoration(labelText: 'Reason'),
-                      maxLines: 2,
-                      validator: (value) => value == null || value.isEmpty ? 'Reason required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            pickedFile != null
-                                ? 'Document: ${pickedFile?.path.split('/').last}'
-                                : 'No document selected',
-                            style: const TextStyle(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      decoration: const InputDecoration(
+                        labelText: 'Reason for Leave',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.attach_file),
-                          onPressed: () async {
-                            final result = await FilePicker.platform.pickFiles(type: FileType.any);
-                            if (result != null && result.files.single.path != null) {
-                              setState(() {
-                                pickedFile = File(result.files.single.path!);
-                              });
-                            }
-                          },
-                        ),
-                      ],
+                        prefixIcon: Icon(Icons.edit_note_outlined),
+                      ),
+                      maxLines: 3,
+                      validator: (value) => value == null || value.isEmpty ? 'Reason is required' : null,
                     ),
                     const SizedBox(height: 24),
+                    _buildFilePicker(),
+                    const SizedBox(height: 24),
                     ElevatedButton(
-                      onPressed: () async {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          await postLeave(
-                            startDate: startDateController.text,
-                            endDate: endDateController.text,
-                            reason: reasonController.text,
-                            document: pickedFile,
-                          );
-                        }
-                      },
-                      child: const Text('Submit'),
+                      onPressed: postLeave,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      child: const Text('Submit Request'),
                     ),
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildDateTimePicker({
+    required BuildContext context,
+    required TextEditingController controller,
+    required String label,
+    required Function(DateTime) onDateSelected,
+    DateTime? firstDate,
+  }) {
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+        prefixIcon: const Icon(Icons.calendar_today_outlined),
+      ),
+      validator: (value) => value == null || value.isEmpty ? '$label is required' : null,
+      onTap: () async {
+        final pickedDate = await showDatePicker(
+          context: context,
+          initialDate: firstDate ?? DateTime.now(),
+          firstDate: firstDate ?? DateTime.now().subtract(const Duration(days: 1)),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+        );
+        if (pickedDate != null) {
+          if (!mounted) return;
+          final pickedTime = await showTimePicker(
+            context: context,
+            initialTime: TimeOfDay.fromDateTime(firstDate ?? DateTime.now()),
+          );
+          if (pickedTime != null) {
+            final finalDateTime = DateTime(
+              pickedDate.year,
+              pickedDate.month,
+              pickedDate.day,
+              pickedTime.hour,
+              pickedTime.minute,
+            );
+            onDateSelected(finalDateTime);
+          }
+        }
+      },
+    );
+  }
+
+  Widget _buildFilePicker() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.attach_file, color: Colors.grey.shade700),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              pickedFile != null ? pickedFile!.path.split('/').last : 'Attach a document (optional)',
+              style: TextStyle(color: pickedFile != null ? Colors.black : Colors.grey.shade700),
+              overflow: TextOverflow.ellipsis,
             ),
+          ),
+          if (pickedFile != null)
+            IconButton(
+              icon: const Icon(Icons.clear, color: Colors.red),
+              onPressed: () {
+                setState(() {
+                  pickedFile = null;
+                });
+              },
+            )
+          else
+            TextButton(
+              child: const Text('Select'),
+              onPressed: () async {
+                final result = await FilePicker.platform.pickFiles(type: FileType.any);
+                if (result != null && result.files.single.path != null) {
+                  setState(() {
+                    pickedFile = File(result.files.single.path!);
+                  });
+                }
+              },
+            ),
+        ],
+      ),
     );
   }
 }

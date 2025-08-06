@@ -25,6 +25,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   int _selectedTab = 0;
   String _filterStatus = 'All';
   DateTime? _lastBackPressed;
+  bool _loading = true;
 
   @override
   void initState() {
@@ -43,9 +44,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   }
 
   Future<void> _loadLeaveRequests() async {
+    setState(() => _loading = true);
     if (_token == null || _userEmail == null) {
       setState(() {
         _leaveRequests = [];
+        _loading = false;
       });
       return;
     }
@@ -54,34 +57,19 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       final allLeaves = await leaveService.fetchAllLeaves(token: _token!);
       setState(() {
         _leaveRequests = allLeaves;
+        _loading = false;
       });
     } catch (e) {
-      final errorMsg = e.toString();
-      if (errorMsg.contains('401') ||
-          errorMsg.contains('Invalid or expired token')) {
-        // Clear login state and redirect to login/role selection
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('isLoggedIn');
-        await prefs.remove('token');
-        await prefs.remove('role');
-        await prefs.remove('email');
-        await prefs.remove('name');
-        await prefs.remove('student_name');
-        await prefs.remove('gender');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Session expired, please login again.')),
-          );
-          Navigator.of(context)
-              .pushNamedAndRemoveUntil('/role-selection', (route) => false);
-        }
-        return;
-      }
-      dev.log('[StudentDashboardScreen] Error fetching leaves: $e');
       setState(() {
         _leaveRequests = [];
+        _loading = false;
       });
+      dev.log('[StudentDashboardScreen] Error fetching leaves: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('An error occurred. Please try again.')),
+        );
+      }
     }
   }
 
@@ -89,49 +77,49 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
+      onPopInvoked: (didPop) async {
         if (didPop) return;
-
         final now = DateTime.now();
         if (_lastBackPressed == null ||
             now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
           _lastBackPressed = now;
-
-          if (!context.mounted) return;
-
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Press back again to exit')),
           );
-          return; // ✅ just return, no bool needed
+          return;
         }
-
         await SystemNavigator.pop();
       },
       child: Scaffold(
-        backgroundColor: Colors.blue[50],
+        backgroundColor: Colors.grey[100],
         appBar: AppBar(
-          backgroundColor: Colors.blue,
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade400, Colors.indigo.shade600],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
           foregroundColor: Colors.white,
-          title:
-              Text(_selectedTab == 0 ? 'Student Dashboard' : 'My Applications'),
+          title: Text(_selectedTab == 0 ? 'Student Dashboard' : 'My Applications'),
           centerTitle: true,
           automaticallyImplyLeading: false,
           actions: [
-            if (_selectedTab == 0)
-              IconButton(
-                icon: const Icon(Icons.notifications),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const NotificationsScreen()),
-                  );
-                },
-              ),
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const NotificationsScreen()),
+                );
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () async {
-                // Show confirmation dialog before logout
                 final shouldLogout = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
@@ -150,27 +138,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   ),
                 );
                 if (shouldLogout == true) {
-                  // Clear user session data and sign out
                   final prefs = await SharedPreferences.getInstance();
-                  final fcmToken = prefs.getString('fcm_token');
-                  if (fcmToken != null && fcmToken.isNotEmpty) {
-                    try {
-                      await AuthService().deleteFcmToken(fcmToken: fcmToken);
-                    } catch (_) {}
-                  }
-                  await prefs.remove('user_email');
-                  await prefs.setBool('isLoggedIn', false);
-                  await prefs.remove('token');
-                  await prefs.remove('role');
-                  await prefs.remove('name');
-                  await prefs.remove('email');
-                  await prefs.remove('student_name');
-                  await prefs.remove('gender');
-                  // Sign out from Google as well
+                  await prefs.clear();
                   try {
                     await GoogleSignIn().signOut();
                   } catch (_) {}
-                  // Navigate to login/role selection
+                  if (!mounted) return;
                   Navigator.pushNamedAndRemoveUntil(
                     context,
                     '/role-selection',
@@ -181,8 +154,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             ),
           ],
         ),
-        body:
-            _selectedTab == 0 ? _buildDashboardTab() : _buildApplicationsTab(),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _selectedTab == 0 ? _buildDashboardTab() : _buildApplicationsTab(),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedTab,
           onTap: (idx) {
@@ -190,13 +164,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               _selectedTab = idx;
             });
           },
+          selectedItemColor: Colors.indigo.shade700,
+          unselectedItemColor: Colors.grey.shade600,
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard),
+              icon: Icon(Icons.dashboard_outlined),
+              activeIcon: Icon(Icons.dashboard),
               label: 'Dashboard',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.list_alt),
+              icon: Icon(Icons.list_alt_outlined),
+              activeIcon: Icon(Icons.list_alt),
               label: 'Applications',
             ),
           ],
@@ -205,271 +183,214 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     );
   }
 
-  // --- Dashboard Tab: Only first 3 applications with timeline ---
   Widget _buildDashboardTab() {
-    // Check if there is any leave with wardenStatus approved
+    final recentRequests = _leaveRequests.take(3).toList();
 
     return RefreshIndicator(
       onRefresh: _loadLeaveRequests,
-      child: Padding(
+      child: ListView(
         padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            // Welcome Card
-            Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.blue,
-                      child: Icon(
-                        Icons.person,
-                        size: 30,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome, ${_studentName.isNotEmpty ? _studentName : 'Student'}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            _userEmail ?? '',
-                            style: const TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+        children: [
+          // Welcome Header
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [Colors.indigo.shade500, Colors.blue.shade400],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // Action Buttons
-            Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _buildActionButton(
-                    'Request Leave',
-                    Icons.add_circle,
-                    Colors.blue,
-                    () {
-                      Navigator.pushNamed(context, '/request-leave');
-                    },
+                Text(
+                  'Welcome, ${_studentName.isNotEmpty ? _studentName : 'Student'}!',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _userEmail ?? '',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
                   ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 24),
 
-            const SizedBox(height: 20),
-
-            // Leave Requests Section (first 3)
-            const Text(
-              'Recent Applications',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+          // Action Button
+          ElevatedButton.icon(
+            onPressed: () async {
+              final result = await Navigator.pushNamed(context, '/request-leave');
+              if (result == true) {
+                _loadLeaveRequests();
+              }
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Request New Leave'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
+          ),
+          const SizedBox(height: 24),
 
-            const SizedBox(height: 12),
-
-            if (_leaveRequests.isEmpty)
-              const Center(
-                child: Text(
-                  'No leave requests yet.\nTap "Request Leave" to create one.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-              )
-            else
-              ..._leaveRequests.take(3).map(
-                  (req) => _buildLeaveRequestCard(req, showTimeline: true)),
-          ],
-        ),
+          // Recent Applications section
+          _buildSectionHeader('Recent Applications', () => setState(() => _selectedTab = 1)),
+          if (_leaveRequests.isEmpty)
+            _buildEmptyState('No leave requests yet.')
+          else
+            ...recentRequests.map((req) => _buildLeaveRequestCard(req)).toList(),
+        ],
       ),
     );
   }
 
-  // --- Applications Tab: All applications with filter ---
   Widget _buildApplicationsTab() {
-    // Filtering logic
     List<LeaveRequest> filtered = _leaveRequests;
     if (_filterStatus != 'All') {
-      filtered = _leaveRequests.where((leave) {
-        final warden = leave.wardenStatus.status;
-        final parent = leave.parentStatus.status;
-        final guard = leave.guardStatus.status;
-        if (_filterStatus == 'Parent Approved') {
-          return parent == 'approved';
-        } else if (_filterStatus == 'Warden Approved') {
-          return warden == 'approved';
-        } else if (_filterStatus == 'Guard Approved') {
-          return guard == 'approved';
-        }
+       filtered = _leaveRequests.where((leave) {
+        if (_filterStatus == 'Pending') return (leave.wardenStatus.status == 'pending' || leave.parentStatus.status == 'pending') && leave.adminStatus.status != 'rejected' && leave.wardenStatus.status != 'rejected' && leave.parentStatus.status != 'rejected';
+        if (_filterStatus == 'Approved') return leave.wardenStatus.status == 'approved';
+        if (_filterStatus == 'Rejected') return leave.parentStatus.status == 'rejected' || leave.wardenStatus.status == 'rejected' || leave.adminStatus.status == 'rejected' || leave.adminStatus.status == 'stopped';
         return true;
       }).toList();
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadLeaveRequests,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Filter Row
-            Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Filter:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  'All Applications',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(width: 8),
                 DropdownButton<String>(
                   value: _filterStatus,
-                  items: const [
-                    DropdownMenuItem(value: 'All', child: Text('All')),
-                    DropdownMenuItem(
-                        value: 'Parent Approved',
-                        child: Text('Parent Approved')),
-                    DropdownMenuItem(
-                        value: 'Warden Approved',
-                        child: Text('Warden Approved')),
-                    DropdownMenuItem(
-                        value: 'Guard Approved', child: Text('Guard Approved')),
-                  ],
+                  icon: const Icon(Icons.filter_list),
+                  underline: Container(),
                   onChanged: (val) {
                     setState(() {
                       _filterStatus = val!;
                     });
                   },
+                  items: <String>['All', 'Pending', 'Approved', 'Rejected']
+                      .map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            if (filtered.isEmpty)
-              const Center(
-                child: Text(
-                  'No applications found for selected filter.',
-                  style: TextStyle(color: Colors.grey, fontSize: 16),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView(
-                  children: filtered
-                      .map((req) =>
-                          _buildLeaveRequestCard(req, showTimeline: true))
-                      .toList(),
-                ),
-              ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadLeaveRequests,
+              child: filtered.isEmpty
+                  ? _buildEmptyState('No $_filterStatus applications found.')
+                  : ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) => _buildLeaveRequestCard(filtered[index]),
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // --- Modified to optionally show timeline ---
-  Widget _buildLeaveRequestCard(LeaveRequest request,
-      {bool showTimeline = false}) {
+  Widget _buildLeaveRequestCard(LeaveRequest request) {
     Color statusColor;
     String statusText;
 
-    // Determine status based on adminStatus, wardenStatus, parentStatus, guardStatus
-    final admin = request.adminStatus.status;
     final warden = request.wardenStatus.status;
     final parent = request.parentStatus.status;
+    final admin = request.adminStatus.status;
 
-    if (admin == 'stopped') {
+    if (admin == 'stopped' || admin == 'rejected') {
       statusColor = Colors.red;
       statusText = 'Stopped by Admin';
+    } else if (warden == 'rejected' || parent == 'rejected') {
+      statusColor = Colors.red;
+      statusText = warden == 'rejected' ? 'Rejected by Warden' : 'Rejected by Parent';
     } else if (warden == 'approved') {
       statusColor = Colors.green;
-      statusText = 'Approved by Warden';
-    } else if (warden == 'rejected') {
-      statusColor = Colors.red;
-      statusText = 'Rejected by Warden';
+      statusText = 'Approved';
     } else if (parent == 'approved') {
       statusColor = Colors.blue;
-      statusText = 'Waiting for Warden Approval';
-    } else if (parent == 'rejected') {
-      statusColor = Colors.red;
-      statusText = 'Rejected by Parent';
+      statusText = 'Pending Warden Approval';
     } else {
       statusColor = Colors.orange;
-      statusText = 'Waiting for Parent Approval';
+      statusText = 'Pending Parent Approval';
     }
 
-    // Determine QR button state and label
-    final isQRClickable = warden == 'approved' && admin != 'stopped';
-    final qrButtonLabel = 'My QR Code';
+    final isQRClickable = warden == 'approved' && admin != 'stopped' && request.returnDateTime == null;
 
-    // --- Hide QR code if leave is already returned ---
-    final isReturned = (request.returnDateTime != null);
-
-    return GestureDetector(
-      onTap: () async {
-        if (_token == null || (request.id).isEmpty) return;
-        try {
-          final leaveService = LeaveService();
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) =>
-                const Center(child: CircularProgressIndicator()),
-          );
-          final rawJson = await leaveService.fetchLeaveById(
-            token: _token!,
-            leaveId: request.id,
-          );
-          Navigator.pop(context); // Remove loading dialog
-          // Pass only the 'leave' field from the fetched JSON to the details screen
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => LeaveDetailsScreen(
-                rawJson: (rawJson.containsKey('leave'))
-                    ? rawJson['leave'] as Map<String, dynamic>
-                    : null,
-              ),
-            ),
-          );
-        } catch (e) {
-          Navigator.pop(context);
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Error'),
-              content: Text(e.toString()),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () async {
+          if (_token == null || (request.id).isEmpty) return;
+          try {
+            if (!mounted) return;
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => const Center(child: CircularProgressIndicator()),
+            );
+            final leaveService = LeaveService();
+            final rawJson = await leaveService.fetchLeaveById(
+              token: _token!,
+              leaveId: request.id,
+            );
+            if (!mounted) return;
+            Navigator.pop(context); // Remove loading dialog
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LeaveDetailsScreen(
+                  rawJson: (rawJson.containsKey('leave'))
+                      ? rawJson['leave'] as Map<String, dynamic>
+                      : null,
                 ),
-              ],
-            ),
-          );
-        }
-      },
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 12),
+              ),
+            );
+          } catch (e) {
+            if (mounted) {
+              Navigator.pop(context); // Remove loading dialog if present
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Error'),
+                  content: const Text('An error occurred. Please try again.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -481,61 +402,41 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   Expanded(
                     child: Text(
                       request.reason,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       statusText,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
-                'From: ${_formatDate(request.startDate)}',
-                style: const TextStyle(color: Colors.grey),
+                'From: ${_formatDate(request.startDate)} To: ${_formatDate(request.endDate)}',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
-              Text(
-                'To: ${_formatDate(request.endDate)}',
-                style: const TextStyle(color: Colors.grey),
-              ),
-              if (showTimeline)
+              const Divider(height: 24),
+              _buildStatusTimeline(request),
+              if (isQRClickable)
                 Padding(
-                  padding: const EdgeInsets.only(top: 12.0),
-                  child: _buildSimpleStatusTracker(request),
-                ),
-              // Only show QR code button if not returned
-              if (!isReturned)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed:
-                        isQRClickable ? () => _showQRCode(request) : null,
-                    icon: Icon(
-                      Icons.qr_code,
-                      color: isQRClickable ? Colors.green : Colors.grey,
-                    ),
-                    label: Text(
-                      qrButtonLabel,
-                      style: TextStyle(
-                        color: isQRClickable ? Colors.green : Colors.grey,
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showQRCode(request),
+                      icon: const Icon(Icons.qr_code_2),
+                      label: const Text('Show My QR Code'),
+                       style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
                       ),
                     ),
                   ),
@@ -546,149 +447,121 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       ),
     );
   }
-
-  // --- Simple horizontal tracker widget ---
-  Widget _buildSimpleStatusTracker(LeaveRequest leave) {
-    final stages = [
-      {
-        'label': 'Parent',
-        'status': leave.parentStatus.status,
-        'date': leave.parentStatus.decidedAt ?? leave.createdAt
-      },
-      {
-        'label': 'Warden',
-        'status': leave.wardenStatus.status,
-        'date': leave.wardenStatus.decidedAt ?? leave.createdAt
-      },
-      {
-        'label': 'Guard',
-        'status': leave.guardStatus.status,
-        'date': leave.guardStatus.decidedAt ?? leave.createdAt
-      },
-      {
-        'label': 'Return',
-        'status': leave.returnDateTime != null ? 'returned' : 'pending',
-        'date': leave.returnDateTime
-      },
-    ];
-
-    // Optionally add Admin if applicable
-    if (leave.adminStatus.status == 'rejected' ||
-        leave.adminStatus.status == 'stopped') {
-      stages.add({
-        'label': 'Admin',
-        'status': leave.adminStatus.status,
-        'date': leave.adminStatus.decidedAt ?? leave.createdAt
-      });
-    }
-
-    // Find current stage index
-    int currentStage = 0;
-    for (int i = 0; i < stages.length; i++) {
-      final status = stages[i]['status'] as String?;
-      if (status == 'pending') {
-        currentStage = i;
-        break;
-      }
-      if (status == 'rejected' || status == 'stopped') {
-        currentStage = i;
-        break;
-      }
-      if (status == 'approved') {
-        currentStage = i + 1;
-      }
-    }
-
-    Color getColor(int idx, String? status) {
-      if (status == 'rejected' || status == 'stopped') return Colors.red;
-      if (idx < currentStage) return Colors.green;
-      if (idx == currentStage) return Colors.blue;
-      return Colors.grey[400]!;
-    }
-
-    Widget buildDot(int idx, String label, String? status, DateTime? date) {
-      final color = getColor(idx, status);
-      return Column(
-        children: [
-          CircleAvatar(
-            radius:
-                MediaQuery.of(context).size.width * 0.03, // Responsive radius
-            backgroundColor: color,
-            child: Icon(
-              status == 'approved' || status == 'returned'
-                  ? Icons.check
-                  : (status == 'rejected' || status == 'stopped')
-                      ? Icons.close
-                      : Icons.circle,
-              color: Colors.white,
-              size: MediaQuery.of(context).size.width *
-                  0.04, // Responsive icon size
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: MediaQuery.of(context).size.width *
-                  0.03, // Responsive font size
-              color: color,
-              fontWeight:
-                  idx == currentStage ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          if (status == 'returned' && date != null)
-            Text(
-              _formatDateTime(date),
-              style: TextStyle(
-                fontSize: MediaQuery.of(context).size.width *
-                    0.025, // Responsive font size
-                color: Colors.green,
-              ),
-            ),
-        ],
-      );
-    }
-
-    List<Widget> tracker = List.generate(stages.length * 2 - 1, (i) {
-      if (i.isEven) {
-        final idx = i ~/ 2;
-        final stage = stages[idx];
-        return buildDot(
-          idx,
-          stage['label'] as String,
-          stage['status'] as String?,
-          stage['date'] as DateTime?,
-        );
-      } else {
-        // Connector line
-        final leftIdx = (i - 1) ~/ 2;
-        final leftStatus = stages[leftIdx]['status'] as String?;
-        final color = (leftStatus == 'approved' ||
-                leftStatus == 'returned' ||
-                leftStatus == 'rejected' ||
-                leftStatus == 'stopped')
-            ? getColor(leftIdx, leftStatus)
-            : Colors.grey[400];
-        return Expanded(
-          child: Container(
-            height: 2,
-            color: color,
-          ),
-        );
-      }
-    });
-
+  
+  // Helper Widgets
+  Widget _buildSectionHeader(String title, VoidCallback onViewAll) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: tracker,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          TextButton(
+            onPressed: onViewAll,
+            child: const Text('View All'),
+          ),
+        ],
       ),
     );
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  Widget _buildEmptyState(String message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_outlined, size: 50, color: Colors.grey[400]),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.grey, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusTimeline(LeaveRequest leave) {
+    // Define the stages of the leave process
+    final stages = [
+      {'label': 'Parent', 'status': leave.parentStatus.status},
+      {'label': 'Warden', 'status': leave.wardenStatus.status},
+      {'label': 'Guard', 'status': leave.guardStatus.status},
+      {'label': 'Return', 'status': leave.returnDateTime != null ? 'approved' : 'pending'},
+    ];
+
+    // Determine the current active stage
+    int activeStage = 0;
+    if (leave.parentStatus.status == 'approved') activeStage = 1;
+    if (leave.wardenStatus.status == 'approved') activeStage = 2;
+    if (leave.guardStatus.status == 'approved') activeStage = 3;
+    if (leave.returnDateTime != null) activeStage = 4;
+
+    // Check for rejection at any stage
+    if (leave.parentStatus.status == 'rejected' || leave.wardenStatus.status == 'rejected' || leave.adminStatus.status == 'rejected' || leave.adminStatus.status == 'stopped') {
+       activeStage = stages.indexWhere((s) => s['status'] == 'rejected' || s['status'] == 'stopped');
+       if (activeStage == -1) { // If admin rejected
+         activeStage = 1;
+       }
+    }
+
+
+    List<Widget> timelineWidgets = [];
+    for (int i = 0; i < stages.length; i++) {
+      final stage = stages[i];
+      final status = stage['status'] as String;
+      Color color;
+      IconData icon;
+
+      if (status == 'rejected' || status == 'stopped') {
+        color = Colors.red;
+        icon = Icons.cancel;
+      } else if (i < activeStage) {
+        color = Colors.green;
+        icon = Icons.check_circle;
+      } else if (i == activeStage) {
+        color = Colors.blue;
+        icon = Icons.sync;
+      } else {
+        color = Colors.grey;
+        icon = Icons.circle_outlined;
+      }
+
+      timelineWidgets.add(
+        Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 4),
+            Text(
+              stage['label'] as String,
+              style: TextStyle(fontSize: 10, color: color),
+            ),
+          ],
+        ),
+      );
+
+      // Add connector line
+      if (i < stages.length - 1) {
+        timelineWidgets.add(
+          Expanded(
+            child: Container(
+              height: 2,
+              color: i < activeStage -1 ? Colors.green : Colors.grey.shade300,
+            ),
+          ),
+        );
+      }
+    }
+
+    return Row(
+      children: timelineWidgets,
+    );
   }
 
   String _formatDate(DateTime date) {
@@ -696,45 +569,27 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   }
 
   void _showQRCode(LeaveRequest approvedLeave) {
-    // Determine the text based on guard status
-    final isReturnVerification = approvedLeave.guardStatus.status == 'approved';
-    final verificationText = isReturnVerification
-        ? 'Scan this QR code to verify return'
-        : 'Scan this QR code to verify leave approval';
-
-    final qrData = _generateQRData(approvedLeave);
-
+    final qrData = '${_studentName}|${approvedLeave.reason}|${approvedLeave.id}';
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('QR Code'),
+        title: const Text('Your Leave QR Code'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
+            SizedBox(
               width: 200,
               height: 200,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
-              ),
               child: QrImageView(
                 data: qrData,
                 version: QrVersions.auto,
-                size: 200.0,
                 backgroundColor: Colors.white,
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              verificationText,
-              style: const TextStyle(fontSize: 14),
+            const Text(
+              'Present this code to the guard for scanning upon departure and return.',
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Leave Reason: ${approvedLeave.reason}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
@@ -742,41 +597,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _generateQRData(LeaveRequest approvedLeave) {
-    // Encode QR data in "name|reason|leaveId" format
-    return '${_studentName}|${approvedLeave.reason}|${approvedLeave.id}';
-  }
-
-  Widget _buildActionButton(
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback? onPressed, // <-- Make nullable
-  ) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 24),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 12),
-            textAlign: TextAlign.center,
           ),
         ],
       ),

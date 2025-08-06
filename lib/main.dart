@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'screens/role_selection_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/student_dashboard_screen.dart';
@@ -13,29 +15,94 @@ import 'screens/guard_dashboard_screen.dart';
 import 'screens/qr_scanner_screen.dart';
 import 'models/data_models.dart';
 import 'firebase_options.dart';
-import 'services/fcm_service.dart';
 import 'dart:developer' as dev;
+
+// --- ADDED THIS SECTION FOR FOREGROUND NOTIFICATIONS ---
+/// Create a [AndroidNotificationChannel] for heads up notifications
+late AndroidNotificationChannel channel;
+
+/// Initialize the [FlutterLocalNotificationsPlugin] package.
+late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  dev.log('Handling a background message ${message.messageId}');
+}
+
+// --- ADDED for notification tap handling ---
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse notificationResponse) {
+  dev.log('Notification tapped in background: ${notificationResponse.payload}');
+}
+// --- END OF SECTION ---
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-   // Initialize Firebase with options
+  // Initialize Firebase with options
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-    // Initialize FCM Service
-  try {
-    final fcmService = FCMService();
-    await fcmService.initialize();
-    if (kDebugMode) {
-      dev.log('🔔 FCM Service initialized successfully');
-    }
-  } catch (e) {
-    if (kDebugMode) {
-      dev.log('⚠️ Error initializing FCM Service: $e');
-    }
-  }
 
-  runApp(MyApp());
+  // --- ADDED THIS SECTION TO HANDLE FOREGROUND NOTIFICATIONS ---
+  // Set the background messaging handler early on, as a named top-level function
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  if (!kIsWeb) {
+    channel = const AndroidNotificationChannel(
+      'high_importance_channel', // id
+      'High Importance Notifications', // title
+      description: 'This channel is used for important notifications.', // description
+      importance: Importance.high,
+    );
+
+    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+    // --- UPDATED iOS permission and notification tap handling ---
+    // The problematic onDidReceiveLocalNotification parameter is removed.
+    const DarwinInitializationSettings initializationSettingsIOS =
+      DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+    );
+    const InitializationSettings initializationSettings = InitializationSettings(
+      iOS: initializationSettingsIOS,
+      android: AndroidInitializationSettings('launch_background'),
+    );
+    // The new handlers for notification taps are added here.
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse notificationResponse) async {
+        final String? payload = notificationResponse.payload;
+        if (notificationResponse.payload != null) {
+          dev.log('FOREGROUND notification payload: $payload');
+        }
+        // You can add navigation logic here based on the payload.
+      },
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+    );
+    // --- END of update ---
+
+
+    /// Create an Android Notification Channel.
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
+    /// Update the iOS foreground notification presentation options to allow
+    /// heads up notifications.
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+  }
+  // --- END OF SECTION ---
+
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -44,7 +111,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PIMS',
+      title: 'Ease Exit', // Updated App Title
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
@@ -65,10 +132,13 @@ class MyApp extends StatelessWidget {
       home: const RootScreen(), // <-- Use RootScreen to handle navigation logic
       onGenerateRoute: (settings) {
         if (settings.name == '/login') {
-          final UserRole role = settings.arguments as UserRole;
-          return MaterialPageRoute(
-            builder: (context) => LoginScreen(role: role),
-          );
+          // It's safer to handle potential type mismatches.
+          final role = settings.arguments;
+          if (role is UserRole) {
+             return MaterialPageRoute(
+              builder: (context) => LoginScreen(role: role),
+            );
+          }
         }
         
         return null;
@@ -104,6 +174,34 @@ class _RootScreenState extends State<RootScreen> {
   @override
   void initState() {
     super.initState();
+    // --- ADDED THIS LISTENER FOR FOREGROUND MESSAGES ---
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      RemoteNotification? notification = message.notification;
+      if (notification != null && !kIsWeb) { // Simplified check
+        flutterLocalNotificationsPlugin.show(
+          notification.hashCode,
+          notification.title,
+          notification.body,
+          NotificationDetails(
+            android: AndroidNotificationDetails(
+              channel.id,
+              channel.name,
+              channelDescription: channel.description,
+              icon: 'launch_background',
+            ),
+            // --- ADDED iOS NOTIFICATION DETAILS ---
+            iOS: const DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          ),
+        );
+         dev.log('Foreground notification displayed: ${notification.title}');
+      }
+    });
+    // --- END OF LISTENER ---
+
     _checkLoginAndNavigate();
   }
 
@@ -129,6 +227,24 @@ class _RootScreenState extends State<RootScreen> {
       final hasAllFields = isLoggedIn && role != null && token != null && name != null && email != null;
 
       if (hasAllFields) {
+        // --- UPDATED THIS BLOCK TO GET AND STORE FCM TOKEN ---
+        if (kDebugMode) {
+            try {
+                final fcmToken = await FirebaseMessaging.instance.getToken();
+                if (fcmToken != null) {
+                    dev.log('📱 FCM Token for testing: $fcmToken');
+                    // Store the latest token in SharedPreferences
+                    await prefs.setString('fcm_token', fcmToken);
+                    dev.log('✅ FCM Token saved to SharedPreferences.');
+                } else {
+                    dev.log('📱 Could not retrieve FCM Token.');
+                }
+            } catch (e) {
+                dev.log('⚠️ Error getting FCM token: $e');
+            }
+        }
+        // --- END OF BLOCK ---
+
         if (mounted) {
           if (role == 'student') {
             Navigator.of(context).pushReplacementNamed('/student-dashboard');
@@ -144,11 +260,7 @@ class _RootScreenState extends State<RootScreen> {
         }
       } else {
         // Clear any partial/invalid login state
-        await prefs.remove('isLoggedIn');
-        await prefs.remove('role');
-        await prefs.remove('token');
-        await prefs.remove('name');
-        await prefs.remove('email');
+        await prefs.clear(); // Use clear() for a more robust logout
         if (mounted) {
           Navigator.of(context).pushReplacementNamed('/role-selection');
         }
@@ -166,18 +278,17 @@ class _RootScreenState extends State<RootScreen> {
   @override
   Widget build(BuildContext context) {
     // Simple splash/loading UI while checking login state
-    return Scaffold(
+    return const Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
+          children: [
             CircularProgressIndicator(),
-           
-          
+            SizedBox(height: 20),
+            Text('Loading...'),
           ],
         ),
       ),
     );
   }
 }
-

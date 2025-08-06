@@ -3,11 +3,11 @@
 import 'package:flutter/material.dart';
 import '../models/data_models.dart';
 import '../services/warden_service.dart';
- import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'leave_details_screen.dart'; 
+import 'leave_details_screen.dart';
 
 class WardenDashboardScreen extends StatefulWidget {
   const WardenDashboardScreen({super.key});
@@ -16,26 +16,17 @@ class WardenDashboardScreen extends StatefulWidget {
   State<WardenDashboardScreen> createState() => _WardenDashboardScreenState();
 }
 
-class _WardenDashboardScreenState extends State<WardenDashboardScreen> with SingleTickerProviderStateMixin {
+class _WardenDashboardScreenState extends State<WardenDashboardScreen> {
   List<LeaveRequest> _leaveRequests = [];
   String _filterOption = 'All';
   bool _isLoading = false;
   String? _error;
+  int _selectedTab = 0;
 
   late WardenService _wardenService;
 
   String _wardenName = '';
   String _wardenEmail = '';
-
-  late TabController _tabController;
-
-  Future<void> _loadWardenInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _wardenName = prefs.getString('name') ?? '';
-      _wardenEmail = prefs.getString('email') ?? '';
-    });
-  }
 
   @override
   void initState() {
@@ -43,15 +34,16 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
     _wardenService = WardenService(
       baseUrl: 'https://college-leave-backend.onrender.com/api',
     );
-    _tabController = TabController(length: 2, vsync: this);
     _loadWardenInfo();
     _loadLeaveRequests();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _loadWardenInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _wardenName = prefs.getString('name') ?? 'Warden';
+      _wardenEmail = prefs.getString('email') ?? '';
+    });
   }
 
   Future<void> _loadLeaveRequests() async {
@@ -69,63 +61,36 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
         _error = 'Failed to load leave requests.';
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final pendingRequests = _leaveRequests
-        .where((r) =>
-            r.parentStatus.status == 'approved' &&
-            (r.wardenStatus.status == 'pending'))
-        .toList();
-
-    final approvedCount = _leaveRequests
-        .where((r) => r.wardenStatus.status == 'approved')
-        .length;
-
-    // Filtering for All tab
-    List<LeaveRequest> filteredRequests = _leaveRequests;
-    switch (_filterOption) {
-      case 'Pending':
-        filteredRequests = _leaveRequests
-            .where((r) =>
-                r.parentStatus.status == 'approved' &&
-                (r.wardenStatus.status == 'pending'))
-            .toList();
-        break;
-      case 'Approved':
-        filteredRequests = _leaveRequests
-            .where((r) => r.wardenStatus.status == 'approved')
-            .toList();
-        break;
-      case 'Rejected':
-        filteredRequests = _leaveRequests
-            .where((r) => r.wardenStatus.status == 'rejected')
-            .toList();
-        break;
-      default:
-        filteredRequests = _leaveRequests;
-    }
-
-    List<LeaveRequest> pendingTabRequests = pendingRequests;
-
     return Scaffold(
-      backgroundColor: Colors.orange[50],
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: Colors.orange,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.orange.shade400, Colors.deepOrange.shade600],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         foregroundColor: Colors.white,
-        title: const Text('Warden Dashboard'),
+        title: Text(_selectedTab == 0 ? 'Warden Dashboard' : 'All Applications'),
         centerTitle: true,
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              // Show confirmation dialog before logout
               final shouldLogout = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
@@ -145,22 +110,10 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
               );
               if (shouldLogout == true) {
                 final prefs = await SharedPreferences.getInstance();
-                final fcmToken = prefs.getString('fcm_token');
-                if (fcmToken != null && fcmToken.isNotEmpty) {
-                  try {
-                    await AuthService().deleteFcmToken(fcmToken: fcmToken);
-                  } catch (_) {}
-                }
-                await prefs.remove('user_email');
-                await prefs.setBool('isLoggedIn', false);
-                await prefs.remove('token');
-                await prefs.remove('role');
-                await prefs.remove('email');
-                await prefs.remove('student_name');
+                await prefs.clear();
                 try {
                   await GoogleSignIn().signOut();
                 } catch (_) {}
-                if (!mounted) return;
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/role-selection',
@@ -170,299 +123,177 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
             },
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(text: 'Pending'),
-            Tab(text: 'All'),
-          ],
-        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Center(
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  )
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // Pending Tab: full dashboard
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Welcome Card (refactored to match student dashboard)
-                          Card(
-                            elevation: 4,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  const CircleAvatar(
-                                    radius: 30,
-                                    backgroundColor: Colors.orange,
-                                    child: Icon(
-                                      Icons.admin_panel_settings,
-                                      size: 30,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Welcome, $_wardenName',
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          _wardenEmail,
-                                          style: const TextStyle(
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // Stats Cards
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildStatCard(
-                                  'Pending Review',
-                                  pendingRequests.length.toString(),
-                                  Colors.orange,
-                                  Icons.pending_actions,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildStatCard(
-                                  'Approved',
-                                  approvedCount.toString(),
-                                  Colors.green,
-                                  Icons.check_circle,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildStatCard(
-                                  'Total',
-                                  _leaveRequests.length.toString(),
-                                  Colors.blue,
-                                  Icons.list_alt,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // Remove Dropdown filter and replace with section header
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Leave Requests',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (pendingRequests.isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '${pendingRequests.length} pending',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Pending requests list
-                          Expanded(
-                            child: pendingTabRequests.isEmpty
-                                ? Center(
-                                    child: Text(
-                                      'No pending leave requests to review.',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  )
-                                : RefreshIndicator(
-                                    onRefresh: _loadLeaveRequests,
-                                    child: ListView.builder(
-                                      itemCount: pendingTabRequests.length,
-                                      itemBuilder: (context, index) {
-                                        final request = pendingTabRequests[index];
-                                        return _buildLeaveRequestCard(request);
-                                      },
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
-                      // All Tab: only filter and filtered list
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              DropdownButton<String>(
-                                value: _filterOption,
-                                icon: const Icon(Icons.filter_list),
-                                underline: Container(
-                                  height: 2,
-                                  color: Colors.orange,
-                                ),
-                                onChanged: (String? newValue) {
-                                  setState(() {
-                                    _filterOption = newValue!;
-                                  });
-                                },
-                                items: <String>['All', 'Pending', 'Approved', 'Rejected']
-                                    .map<DropdownMenuItem<String>>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Expanded(
-                            child: filteredRequests.isEmpty
-                                ? Center(
-                                    child: Text(
-                                      _filterOption == 'All'
-                                          ? 'No leave requests found.'
-                                          : 'No $_filterOption leave requests found.',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  )
-                                : RefreshIndicator(
-                                    onRefresh: _loadLeaveRequests,
-                                    child: ListView.builder(
-                                      itemCount: filteredRequests.length,
-                                      itemBuilder: (context, index) {
-                                        final request = filteredRequests[index];
-                                        return _buildLeaveRequestCard(request);
-                                      },
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              : _buildTabContent(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedTab,
+        onTap: (idx) => setState(() => _selectedTab = idx),
+        selectedItemColor: Colors.deepOrange.shade700,
+        unselectedItemColor: Colors.grey.shade600,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list_alt_outlined),
+            activeIcon: Icon(Icons.list_alt),
+            label: 'All',
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, Color color, IconData icon) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
+  Widget _buildTabContent() {
+    switch (_selectedTab) {
+      case 0:
+        return _buildDashboardTab();
+      case 1:
+        return _buildAllApplicationsTab();
+      default:
+        return Container();
+    }
+  }
+
+  Widget _buildDashboardTab() {
+    final pendingRequests = _leaveRequests.where((r) => r.parentStatus.status == 'approved' && r.wardenStatus.status == 'pending').toList();
+    final approvedToday = _leaveRequests.where((r) => r.wardenStatus.status == 'approved' && r.wardenStatus.decidedAt != null && r.wardenStatus.decidedAt!.isAfter(DateTime.now().subtract(const Duration(days: 1)))).length;
+    final totalProcessed = _leaveRequests.where((r) => r.wardenStatus.status != 'pending').length;
+
+    return RefreshIndicator(
+      onRefresh: _loadLeaveRequests,
+      child: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          // Welcome Header
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [Colors.deepOrange.shade500, Colors.orange.shade400],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 10,
-              ),
-              textAlign: TextAlign.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome, $_wardenName',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _wardenEmail,
+                  style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+
+          // Stat Cards
+          Row(
+            children: [
+              Expanded(child: _buildStatCard('Pending Review', pendingRequests.length.toString(), Icons.pending_actions, Colors.orange)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildStatCard('Approved Today', approvedToday.toString(), Icons.check_circle, Colors.green)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildStatCard('Total Processed', totalProcessed.toString(), Icons.list_alt, Colors.blue)),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Recent Applications section
+          _buildSectionHeader('Pending Your Approval', () {}),
+          if (pendingRequests.isEmpty)
+            _buildEmptyState('No pending requests to review.')
+          else
+            ...pendingRequests.map(_buildLeaveRequestCard).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAllApplicationsTab() {
+    List<LeaveRequest> filteredRequests = _leaveRequests;
+    if (_filterOption != 'All') {
+      filteredRequests = _leaveRequests.where((r) => r.wardenStatus.status == _filterOption.toLowerCase()).toList();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('All Applications', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                DropdownButton<String>(
+                  value: _filterOption,
+                  icon: const Icon(Icons.filter_list),
+                  underline: Container(),
+                  onChanged: (String? newValue) {
+                    setState(() => _filterOption = newValue!);
+                  },
+                  items: <String>['All', 'Pending', 'Approved', 'Rejected']
+                      .map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(value: value, child: Text(value));
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadLeaveRequests,
+              child: filteredRequests.isEmpty
+                  ? _buildEmptyState('No $_filterOption applications found.')
+                  : ListView.builder(
+                      itemCount: filteredRequests.length,
+                      itemBuilder: (context, index) => _buildLeaveRequestCard(filteredRequests[index]),
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildLeaveRequestCard(LeaveRequest request) {
-    bool showActionButtons = request.parentStatus.status == 'approved' &&
-        (request.wardenStatus.status == 'pending');
-
-    // Document preview logic
-    final hasDocument = request.attachmentPath != null && request.attachmentPath!.isNotEmpty;
-    final previewUrl = hasDocument
-        ? 'https://college-leave-backend.onrender.com/api/drive/${request.attachmentPath}'
-        : null;
+    bool showActionButtons = request.parentStatus.status == 'approved' && request.wardenStatus.status == 'pending';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: () async {
-          // Fetch full details and navigate to details screen
           try {
-            setState(() {
-              _isLoading = true;
-            });
+            setState(() => _isLoading = true);
             final details = await _wardenService.getApplicationDetails(request.id);
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => LeaveDetailsScreen(rawJson: details),
-              ),
+              MaterialPageRoute(builder: (context) => LeaveDetailsScreen(rawJson: details)),
             );
           } catch (e) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Failed to load application details.')),
             );
           } finally {
-            setState(() {
-              _isLoading = false;
-            });
+            if (mounted) {
+              setState(() => _isLoading = false);
+            }
           }
         },
         child: Padding(
@@ -470,122 +301,19 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      request.reason,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              Text(request.reason, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text(
-                'Student Name: ${request.studentName}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              Text('Student: ${request.studentName}', style: const TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 4),
               Text(
-                'From: ${_formatDate(request.startDate)}',
-                style: const TextStyle(color: Colors.grey),
+                'From: ${_formatDate(request.startDate)} To: ${_formatDate(request.endDate)}',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
-              Text(
-                'To: ${_formatDate(request.endDate)}',
-                style: const TextStyle(color: Colors.grey),
-              ),
-              if (request.attachmentPath != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.attach_file, size: 16, color: Colors.blue),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () {
-                          if (previewUrl != null) {
-                            launchUrl(Uri.parse(previewUrl));
-                          }
-                        },
-                        child: const Text(
-                          'View attachment',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            fontSize: 12,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
               if (request.parentStatus.reason != null && request.parentStatus.reason!.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.withOpacity(0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Parent\'s Comment:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                          ),
-                        ),
-                        Text(
-                          request.parentStatus.reason!,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text('Parent Comment: ${request.parentStatus.reason}', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
                 ),
-
-              if (request.wardenStatus.reason != null && request.wardenStatus.reason!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Your Comment:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
-                          ),
-                        ),
-                        Text(
-                          request.wardenStatus.reason!,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
               if (showActionButtons)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -596,10 +324,7 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
                           onPressed: () => _showApprovalDialog(request, true),
                           icon: const Icon(Icons.check, size: 16),
                           label: const Text('Approve'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                          ),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -608,10 +333,7 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
                           onPressed: () => _showApprovalDialog(request, false),
                           icon: const Icon(Icons.close, size: 16),
                           label: const Text('Reject'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                          ),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
                         ),
                       ),
                     ],
@@ -624,82 +346,94 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
     );
   }
 
+  // Helper Widgets
+  Widget _buildStatCard(String title, String count, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 5)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
+          Text(count, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, VoidCallback onViewAll) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          TextButton(onPressed: onViewAll, child: const Text('View All')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_outlined, size: 50, color: Colors.grey[400]),
+          const SizedBox(height: 12),
+          Text(message, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
 
   void _showApprovalDialog(LeaveRequest request, bool isApproval) {
     final TextEditingController commentController = TextEditingController();
-    final ValueNotifier<bool> showError = ValueNotifier<bool>(false);
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(isApproval ? 'Approve Leave' : 'Reject Leave'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Student: ${request.studentId}'),
-            Text('Reason: ${request.reason}'),
-            Text('Duration: ${_formatDate(request.startDate)} to ${_formatDate(request.endDate)}'),
-            if (request.parentStatus.reason != null && request.parentStatus.reason!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('Parent\'s Comment: ${request.parentStatus.reason}'),
-            ],
+            Text('Are you sure you want to ${isApproval ? 'approve' : 'reject'} this request for ${request.studentName}?'),
             const SizedBox(height: 16),
             TextField(
               controller: commentController,
               decoration: InputDecoration(
                 labelText: isApproval ? 'Comment (Optional)' : 'Reason for rejection *',
-                hintText: isApproval 
-                    ? 'e.g., Approved. Take care!'
-                    : 'e.g., Need more documentation',
                 border: const OutlineInputBorder(),
-                errorText: !isApproval && showError.value && commentController.text.trim().isEmpty
-                    ? 'Rejection reason is required'
-                    : null,
               ),
               maxLines: 2,
-              onChanged: (_) {
-                if (!isApproval) showError.value = false;
-              },
             ),
-            if (!isApproval)
-              ValueListenableBuilder<bool>(
-                valueListenable: showError,
-                builder: (context, value, child) {
-                  return value
-                      ? const Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            'Rejection reason is required',
-                            style: TextStyle(color: Colors.red, fontSize: 12),
-                          ),
-                        )
-                      : const SizedBox.shrink();
-                },
-              ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               if (!isApproval && commentController.text.trim().isEmpty) {
-                showError.value = true;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Rejection reason is required.'), backgroundColor: Colors.red),
+                );
                 return;
               }
               _handleApproval(request, isApproval, commentController.text.trim());
               Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isApproval ? Colors.green : Colors.red,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: isApproval ? Colors.green : Colors.red, foregroundColor: Colors.white),
             child: Text(isApproval ? 'Approve' : 'Reject'),
           ),
         ],
@@ -709,9 +443,7 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
 
   void _handleApproval(LeaveRequest request, bool isApproval, String comment) async {
     try {
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() => _isLoading = true);
       await _wardenService.decideApplication(
         id: request.id,
         decision: isApproval ? 'approved' : 'rejected',
@@ -720,26 +452,18 @@ class _WardenDashboardScreenState extends State<WardenDashboardScreen> with Sing
       await _loadLeaveRequests();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            isApproval
-                ? 'Leave request approved successfully!'
-                : 'Leave request rejected.',
-          ),
+          content: Text(isApproval ? 'Leave request approved!' : 'Leave request rejected.'),
           backgroundColor: isApproval ? Colors.green : Colors.red,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update leave request.'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Failed to update leave request.'), backgroundColor: Colors.red),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 }
-
