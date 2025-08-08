@@ -17,7 +17,6 @@ import 'models/data_models.dart';
 import 'firebase_options.dart';
 import 'dart:developer' as dev;
 
-// --- ADDED THIS SECTION FOR FOREGROUND NOTIFICATIONS ---
 /// Create a [AndroidNotificationChannel] for heads up notifications
 late AndroidNotificationChannel channel;
 
@@ -29,22 +28,19 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   dev.log('Handling a background message ${message.messageId}');
 }
 
-// --- ADDED for notification tap handling ---
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse notificationResponse) {
   dev.log('Notification tapped in background: ${notificationResponse.payload}');
 }
-// --- END OF SECTION ---
 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize Firebase with options
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // --- ADDED THIS SECTION TO HANDLE FOREGROUND NOTIFICATIONS ---
+
   // Set the background messaging handler early on, as a named top-level function
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -58,13 +54,13 @@ void main() async {
 
     flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-    // --- UPDATED iOS permission and notification tap handling ---
+
     // The problematic onDidReceiveLocalNotification parameter is removed.
     const DarwinInitializationSettings initializationSettingsIOS =
       DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
     );
     const InitializationSettings initializationSettings = InitializationSettings(
       iOS: initializationSettingsIOS,
@@ -78,11 +74,9 @@ void main() async {
         if (notificationResponse.payload != null) {
           dev.log('FOREGROUND notification payload: $payload');
         }
-        // You can add navigation logic here based on the payload.
       },
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
-    // --- END of update ---
 
 
     /// Create an Android Notification Channel.
@@ -91,7 +85,6 @@ void main() async {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
-    /// Update the iOS foreground notification presentation options to allow
     /// heads up notifications.
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
@@ -100,7 +93,6 @@ void main() async {
       sound: true,
     );
   }
-  // --- END OF SECTION ---
 
   runApp(const MyApp());
 }
@@ -132,7 +124,7 @@ class MyApp extends StatelessWidget {
       home: const RootScreen(), // <-- Use RootScreen to handle navigation logic
       onGenerateRoute: (settings) {
         if (settings.name == '/login') {
-          // It's safer to handle potential type mismatches.
+          
           final role = settings.arguments;
           if (role is UserRole) {
              return MaterialPageRoute(
@@ -153,7 +145,6 @@ class MyApp extends StatelessWidget {
         '/parent-profile': (context) => const ParentProfileScreen(),
         '/qr-scanner': (context) => QrScannerScreen(
           onQrCodeScanned: (qrData) {
-            // Handle QR code scanned data here if needed
           },
           tab: 'departure', // Default to departure tab
         ),
@@ -162,7 +153,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// New RootScreen widget to handle initial navigation
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
@@ -174,7 +164,6 @@ class _RootScreenState extends State<RootScreen> {
   @override
   void initState() {
     super.initState();
-    // --- ADDED THIS LISTENER FOR FOREGROUND MESSAGES ---
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       RemoteNotification? notification = message.notification;
       if (notification != null && !kIsWeb) { // Simplified check
@@ -189,7 +178,6 @@ class _RootScreenState extends State<RootScreen> {
               channelDescription: channel.description,
               icon: 'launch_background',
             ),
-            // --- ADDED iOS NOTIFICATION DETAILS ---
             iOS: const DarwinNotificationDetails(
               presentAlert: true,
               presentBadge: true,
@@ -200,7 +188,7 @@ class _RootScreenState extends State<RootScreen> {
          dev.log('Foreground notification displayed: ${notification.title}');
       }
     });
-    // --- END OF LISTENER ---
+
 
     _checkLoginAndNavigate();
   }
@@ -213,27 +201,22 @@ class _RootScreenState extends State<RootScreen> {
       final token = prefs.getString('token');
       final name = prefs.getString('name');
       final email = prefs.getString('email');
-      // Add more fields if needed
 
       if (kDebugMode) {
         dev.log('🔑 Checking login state: isLoggedIn=$isLoggedIn, role=$role, token=$token, name=$name, email=$email');
       }
 
-      // Use a shorter delay during tests
       final isTestEnvironment = const bool.fromEnvironment('flutter.test');
       await Future.delayed(isTestEnvironment ? const Duration(milliseconds: 100) : const Duration(milliseconds: 500)); 
 
-      // Check for all required fields
       final hasAllFields = isLoggedIn && role != null && token != null && name != null && email != null;
 
       if (hasAllFields) {
-        // --- UPDATED THIS BLOCK TO GET AND STORE FCM TOKEN ---
         if (kDebugMode) {
             try {
                 final fcmToken = await FirebaseMessaging.instance.getToken();
                 if (fcmToken != null) {
                     dev.log('📱 FCM Token for testing: $fcmToken');
-                    // Store the latest token in SharedPreferences
                     await prefs.setString('fcm_token', fcmToken);
                     dev.log('✅ FCM Token saved to SharedPreferences.');
                 } else {
@@ -243,7 +226,6 @@ class _RootScreenState extends State<RootScreen> {
                 dev.log('⚠️ Error getting FCM token: $e');
             }
         }
-        // --- END OF BLOCK ---
 
         if (mounted) {
           if (role == 'student') {
@@ -259,7 +241,6 @@ class _RootScreenState extends State<RootScreen> {
           }
         }
       } else {
-        // Clear any partial/invalid login state
         await prefs.clear(); // Use clear() for a more robust logout
         if (mounted) {
           Navigator.of(context).pushReplacementNamed('/role-selection');
@@ -277,7 +258,6 @@ class _RootScreenState extends State<RootScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Simple splash/loading UI while checking login state
     return const Scaffold(
       body: Center(
         child: Column(

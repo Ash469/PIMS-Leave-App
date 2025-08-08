@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,7 +10,6 @@ import 'dart:io' show Platform;
 import 'dart:ui';
 import 'dart:developer' as dev;
 
-// A reusable glassmorphic container for a modern UI effect
 class GlassmorphicContainer extends StatelessWidget {
   final Widget child;
   const GlassmorphicContainer({super.key, required this.child});
@@ -39,7 +37,6 @@ class GlassmorphicContainer extends StatelessWidget {
   }
 }
 
-// New screen to force user to enter their College ID
 class CollegeIdScreen extends StatefulWidget {
   const CollegeIdScreen({super.key});
 
@@ -53,7 +50,6 @@ class _CollegeIdScreenState extends State<CollegeIdScreen> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      // Return the entered ID to the previous screen
       Navigator.of(context).pop(_collegeIdController.text);
     }
   }
@@ -80,7 +76,7 @@ class _CollegeIdScreenState extends State<CollegeIdScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.asset(
-                      'assets/images/logo.png', // Using the same logo
+                      'assets/images/logo.png',
                       height: 80,
                     ),
                     const SizedBox(height: 20),
@@ -109,7 +105,8 @@ class _CollegeIdScreenState extends State<CollegeIdScreen> {
                         hintStyle: const TextStyle(color: Colors.white38),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                          borderSide:
+                              BorderSide(color: Colors.white.withOpacity(0.3)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15),
@@ -130,11 +127,13 @@ class _CollegeIdScreenState extends State<CollegeIdScreen> {
                         minimumSize: const Size(double.infinity, 50),
                         backgroundColor: Colors.white.withOpacity(0.9),
                         foregroundColor: Colors.deepPurple,
-                         shape: RoundedRectangleBorder(
+                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
                         ),
                       ),
-                      child: const Text('Submit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      child: const Text('Submit',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                   ],
                 ),
@@ -146,7 +145,6 @@ class _CollegeIdScreenState extends State<CollegeIdScreen> {
     );
   }
 }
-
 
 class LoginScreen extends StatefulWidget {
   final dynamic role;
@@ -190,96 +188,95 @@ class _LoginScreenState extends State<LoginScreen>
     dev.log('Loaded role from prefs: $role');
   }
 
-  // Refactored method to handle post-verification logic
-  Future<void> _handleSuccessfulVerification(
-      Map<String, dynamic> verifyResponse,
-      {required String emailForFcm}) async {
-    // Check if user is verified and token is present
-    if (verifyResponse['verified'] != true ||
-        verifyResponse['token'] == null) {
-      // Not authorized, show message and stop
-      setState(() {
-        _isLoading = false;
-        _authErrorMessage = 'You are not authorized for this role.';
-        user = null; // Clear user info
-      });
-      await FirebaseAuth.instance.signOut().catchError((_) {});
-      await GoogleSignIn().signOut().catchError((_) {});
-      return;
+Future<void> _handleSuccessfulVerification(
+    Map<String, dynamic> verifyResponse,
+    {required String emailForFcm}) async {
+  // 1. Check if the user is authorized by your backend. This part is correct.
+  if (verifyResponse['verified'] != true || verifyResponse['token'] == null) {
+    setState(() {
+      _isLoading = false;
+      _authErrorMessage = 'You are not authorized for this role.';
+      user = null; // Clear user info
+    });
+    await FirebaseAuth.instance.signOut().catchError((_) {});
+    await GoogleSignIn().signOut().catchError((_) {});
+    return;
+  }
+
+  // 2. Save all user data from your backend. This part is also correct.
+  await prefs.setString('token', verifyResponse['token'].toString());
+  await prefs.setString('role', verifyResponse['role'].toString());
+  await prefs.setString('id', verifyResponse['id'].toString());
+  await prefs.setString('gender', verifyResponse['gender'].toString());
+  await prefs.setString('email', verifyResponse['email'].toString());
+  await prefs.setString('name', verifyResponse['name'].toString());
+  dev.log('✅ User data saved to SharedPreferences.');
+
+  // 3. Handle the OPTIONAL notification permission.
+  dev.log('Requesting notification permission...');
+  final settings = await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+  dev.log('Notification permission status: ${settings.authorizationStatus}');
+
+  if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+      settings.authorizationStatus == AuthorizationStatus.provisional) {
+    // User GRANTED permission. Get the token and register it.
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    dev.log('👍 Obtained FCM token: $fcmToken');
+    if (fcmToken != null) {
+      await prefs.setString('fcm_token', fcmToken);
+      await _authService.registerFcmToken(
+        fcmToken: fcmToken,
+        email: emailForFcm,
+        id: verifyResponse['id'] ?? '',
+        name: prefs.getString('name') ?? '',
+        role: prefs.getString('role') ?? '',
+        gender: prefs.getString('gender'),
+      );
+      dev.log('FCM token registration process initiated.');
     }
-
-    // Store user data from the response
-    await prefs.setString('token', verifyResponse['token'].toString());
-    await prefs.setString('role', verifyResponse['role'].toString());
-    await prefs.setString('id', verifyResponse['id'].toString());
-    await prefs.setString('gender', verifyResponse['gender'].toString());
-    await prefs.setString('email', verifyResponse['email'].toString());
-    await prefs.setString('name', verifyResponse['name'].toString());
-
-    dev.log('All SharedPreferences after login:');
-    dev.log('token: ${prefs.getString('token')}');
-    dev.log('role: ${prefs.getString('role')}');
-    dev.log('ID: ${prefs.getString('id')}');
-
-    // Get FCM token and register
-    dev.log('Requesting notification permission...');
-    final settings = await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    dev.log('Notification permission status: ${settings.authorizationStatus}');
-
-    if (settings.authorizationStatus == AuthorizationStatus.authorized ||
-        settings.authorizationStatus == AuthorizationStatus.provisional) {
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      dev.log('👍Obtained FCM token: $fcmToken');
-      if (fcmToken != null) {
-        await prefs.setString('fcm_token', fcmToken);
-        final registerResponse = await _authService.registerFcmToken(
-          fcmToken: fcmToken,
-          email: emailForFcm,
-          id: verifyResponse['id'] ?? '',
-          name: prefs.getString('name') ?? '',
-          role: prefs.getString('role') ?? '',
-          gender: prefs.getString('gender'),
-        );
-        dev.log('register-fcm-token response: $registerResponse');
-      }
-      await prefs.setBool('isLoggedIn', true);
-
-      // Navigate to the correct dashboard
-      final savedRole = prefs.getString('role') ?? '';
-      if (!mounted) return;
-      switch (savedRole) {
-        case 'student':
-          Navigator.of(context).pushReplacementNamed('/student-dashboard');
-          break;
-        case 'parent':
-          Navigator.of(context).pushReplacementNamed('/parent-dashboard');
-          break;
-        case 'warden':
-          Navigator.of(context).pushReplacementNamed('/warden-dashboard');
-          break;
-        case 'guard':
-          Navigator.of(context).pushReplacementNamed('/guard-dashboard');
-          break;
-        default:
-          dev.log('Unknown role: $savedRole');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Unknown role: "$savedRole", please try again.')),
-          );
-      }
-    } else {
-      dev.log('Notification permission not granted');
+  } else {
+    // User DENIED permission. Log it and show a gentle, non-blocking message.
+    dev.log('❌ Notification permission not granted. User can proceed without notifications.');
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text(
-                'Notification permission is required. Please enable it in settings.')),
+          content: Text('For real-time updates, you can enable notifications later in settings.'),
+        ),
       );
     }
   }
+
+  await prefs.setBool('isLoggedIn', true);
+  dev.log('User login state set to true. Navigating to dashboard...');
+
+  final savedRole = prefs.getString('role') ?? '';
+  if (!mounted) return;
+
+  switch (savedRole) {
+    case 'student':
+      Navigator.of(context).pushReplacementNamed('/student-dashboard');
+      break;
+    case 'parent':
+      Navigator.of(context).pushReplacementNamed('/parent-dashboard');
+      break;
+    case 'warden':
+      Navigator.of(context).pushReplacementNamed('/warden-dashboard');
+      break;
+    case 'guard':
+      Navigator.of(context).pushReplacementNamed('/guard-dashboard');
+      break;
+    default:
+      dev.log('Unknown role: $savedRole');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Unknown role: "$savedRole", please try again.')),
+      );
+  }
+}
 
   Future<void> signInWithGoogle() async {
     setState(() {
@@ -314,14 +311,13 @@ class _LoginScreenState extends State<LoginScreen>
       final verifyResponse =
           await _authService.verifyGoogleUser(email: email, role: role);
       dev.log('verify-google-user response: $verifyResponse');
-
-      // Use the refactored handler
       await _handleSuccessfulVerification(verifyResponse, emailForFcm: email);
     } catch (e) {
       dev.log('Error signing in with Google: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
+        const SnackBar(
+            content: Text('An unexpected error occurred. Please try again.')),
       );
     } finally {
       if (mounted) {
@@ -332,7 +328,6 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  // Updated method for Apple Sign In
   Future<void> signInWithApple() async {
     setState(() {
       _isLoading = true;
@@ -340,7 +335,6 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      // Real Apple Sign In on Apple devices
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
@@ -348,37 +342,30 @@ class _LoginScreenState extends State<LoginScreen>
         ],
       );
       dev.log('Apple credential received: ${credential.userIdentifier}');
-
-
-      // After successful Apple sign-in, navigate to new screen to get College ID
       if (!mounted) return;
       final String? collegeId = await Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => const CollegeIdScreen()),
       );
 
       if (collegeId == null || collegeId.isEmpty) {
-        // User somehow dismissed the screen without entering an ID, or returned null
         setState(() => _isLoading = false);
         return;
       }
 
       dev.log('User entered College ID: $collegeId');
-
-      // Send college ID and role to the backend for verification
       final savedRole = prefs.getString('role') ?? '';
       final verifyResponse = await _authService.verifyGoogleUser(
-          email: collegeId, role: savedRole); // As requested, using the same route
+          email: collegeId,
+          role: savedRole); // As requested, using the same route
       dev.log('verify-apple-user (via google-route) response: $verifyResponse');
-
-      // Use the refactored handler
-      // We pass the collegeId as the `emailForFcm` as the actual Apple email might be private
-      await _handleSuccessfulVerification(verifyResponse, emailForFcm: collegeId);
-
+      await _handleSuccessfulVerification(verifyResponse,
+          emailForFcm: collegeId);
     } catch (e) {
       dev.log('Error signing in with Apple: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
+        const SnackBar(
+            content: Text('An unexpected error occurred. Please try again.')),
       );
     } finally {
       if (mounted) {
@@ -418,7 +405,6 @@ class _LoginScreenState extends State<LoginScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // Animated Gradient Background
           AnimatedBuilder(
             animation: _animation,
             builder: (context, child) {
@@ -433,7 +419,6 @@ class _LoginScreenState extends State<LoginScreen>
               );
             },
           ),
-          // Main content
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -451,7 +436,10 @@ class _LoginScreenState extends State<LoginScreen>
                         const SizedBox(height: 20),
                         Text(
                           'Welcome to Ease Exit',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                                 letterSpacing: 1.2,
@@ -460,28 +448,31 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                         Text(
                           'Prasad Institute of Medical Sciences',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white.withOpacity(0.8),
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: Colors.white.withOpacity(0.8),
+                                  ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 40),
                         if (_isLoading)
                           const CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         if (!_isLoading) ...[
                           if (_authErrorMessage != null) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
                               decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.5),
-                                borderRadius: BorderRadius.circular(15)
-                              ),
+                                  color: Colors.red.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(15)),
                               child: Text(
                                 _authErrorMessage!,
                                 style: const TextStyle(
-                                    color: Colors.white, fontWeight: FontWeight.bold),
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -492,27 +483,32 @@ class _LoginScreenState extends State<LoginScreen>
                                   _authErrorMessage = null;
                                 });
                               },
-                              child: const Text('Try Again', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              child: const Text('Try Again',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold)),
                             ),
                           ] else if (user == null) ...[
                             // Google Sign In Button
                             ElevatedButton.icon(
                               onPressed: signInWithGoogle,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black87,
-                                minimumSize: const Size(double.infinity, 50),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                                elevation: 8,
-                                shadowColor: Colors.black.withOpacity(0.4)
-                              ),
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.black87,
+                                  minimumSize: const Size(double.infinity, 50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  elevation: 8,
+                                  shadowColor: Colors.black.withOpacity(0.4)),
                               icon: Image.network(
                                 'https://developers.google.com/identity/images/g-logo.png',
                                 height: 24,
                               ),
-                              label: const Text('Sign in with Google', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              label: const Text('Sign in with Google',
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(height: 15),
                             // Apple Sign In Button (shows on Apple platforms only)
@@ -520,28 +516,34 @@ class _LoginScreenState extends State<LoginScreen>
                               ElevatedButton.icon(
                                 onPressed: signInWithApple,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.black,
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size(double.infinity, 50),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  elevation: 8,
-                                  shadowColor: Colors.black.withOpacity(0.4)
-                                ),
-                                icon: const Icon(Icons.apple, color: Colors.white),
-                                label: const Text('Sign in with Apple', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                    minimumSize:
+                                        const Size(double.infinity, 50),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    elevation: 8,
+                                    shadowColor: Colors.black.withOpacity(0.4)),
+                                icon: const Icon(Icons.apple,
+                                    color: Colors.white),
+                                label: const Text('Sign in with Apple',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold)),
                               ),
                           ] else ...[
                             CircleAvatar(
-                              backgroundImage: NetworkImage(user!.photoURL ?? ''),
+                              backgroundImage:
+                                  NetworkImage(user!.photoURL ?? ''),
                               radius: 40,
                             ),
                             const SizedBox(height: 10),
                             Text(
                               user!.displayName ?? '',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.bold, color: Colors.white),
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white),
                             ),
                             Text(
                               user!.email ?? '',
@@ -577,7 +579,8 @@ class _LoginScreenState extends State<LoginScreen>
                               icon: const Icon(Icons.logout),
                               label: const Text('Logout'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.redAccent.withOpacity(0.8),
+                                backgroundColor:
+                                    Colors.redAccent.withOpacity(0.8),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 24, vertical: 12),
